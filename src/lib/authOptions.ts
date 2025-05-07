@@ -1,99 +1,16 @@
-// import { NextAuthOptions } from "next-auth";
-// import GoogleProvider from "next-auth/providers/google";
-// import CredentialsProvider from "next-auth/providers/credentials";
-// import { PrismaAdapter } from "@next-auth/prisma-adapter";
-// import { db } from "./db";
-// import bcrypt from "bcryptjs";
-
-// export const authOptions: NextAuthOptions = {
-//   adapter: PrismaAdapter(db),
-//   providers: [
-//     GoogleProvider({
-//       clientId: process.env.GOOGLE_CLIENT_ID!,
-//       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-//       profile(profile) {
-//         return {
-//           id: profile.sub,
-//           name: profile.name || profile.email.split("@")[0],
-//           email: profile.email,
-//           image: profile.picture,
-//           role: "USER", // Default role
-//         };
-//       },
-//       authorization: {
-//         params: {
-//           prompt: "consent", // Add this to force consent screen
-//           access_type: "offline",
-//           response_type: "code",
-//         },
-//       },
-//     }),
-//     CredentialsProvider({
-//       name: "credentials",
-//       credentials: {
-//         email: { label: "Email", type: "email" },
-//         password: { label: "Password", type: "password" },
-//       },
-//       async authorize(credentials) {
-//         if (!credentials?.email || !credentials?.password) return null;
-
-//         const user = await db.user.findUnique({
-//           where: { email: credentials.email },
-//         });
-
-//         if (!user || !user.password) return null;
-
-//         const isValid = await bcrypt.compare(
-//           credentials.password,
-//           user.password
-//         );
-
-//         return isValid
-//           ? { id: user.id, email: user.email, role: user.role }
-//           : null;
-//       },
-//     }),
-//   ],
-//   session: { strategy: "jwt" },
-//   debug: process.env.NODE_ENV === "development", // Add this option
-//   callbacks: {
-//     async jwt({ token, user }) {
-//       if (user) {
-//         token.role = user.role;
-//         token.id = user.id;
-//       }
-//       return token;
-//     },
-//     async session({ session, token }) {
-//       if (session.user) {
-//         session.user.role = token.role;
-//         session.user.id = token.id;
-//       }
-//       return session;
-//     },
-//     async signIn({ user, account, profile }) {
-//       console.log("SignIn Callback:", { user, account, profile });
-//       return true;
-//     },
-//     async redirect({ url, baseUrl }) {
-//       console.log("Redirect Callback:", { url, baseUrl });
-//       return url.startsWith(baseUrl) ? url : baseUrl;
-//     },
-//   },
-//   pages: {
-//     signIn: "/login",
-//     error: "/login",
-//   },
-//   secret: process.env.NEXTAUTH_SECRET,
-// };
-
-// src/lib/authOptions.ts
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions, Profile, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { db } from "./db";
 import bcrypt from "bcryptjs";
+
+interface GoogleProfile extends Profile {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
@@ -109,10 +26,14 @@ export const authOptions: NextAuthOptions = {
           scope: "openid email profile",
         },
       },
-      profile(profile) {
+      profile(profile: GoogleProfile): User {
+        if (!profile.sub || !profile.email) {
+          throw new Error("Google profile missing required fields");
+        }
+
         return {
           id: profile.sub,
-          name: profile.name || profile.email?.split("@")[0] || "User",
+          name: profile.name || profile.email.split("@")[0],
           email: profile.email,
           image: profile.picture,
           role: "USER",
@@ -173,9 +94,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.name = user.name;
+        token.image = user.image;
       }
 
-      // Handle role updates
       if (trigger === "update" && session?.user?.role) {
         token.role = session.user.role;
       }
@@ -186,56 +108,73 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.name = token.name as string;
+        session.user.image = token.image as string;
       }
       return session;
     },
     async signIn({ account, profile }) {
       try {
-        // Handle Google provider
         if (account?.provider === "google") {
-          if (!profile?.email) {
-            throw new Error("Google account missing email");
+          const googleProfile = profile as GoogleProfile;
+
+          if (!googleProfile?.email || !googleProfile.sub) {
+            throw new Error("Google profile missing required fields");
           }
 
-          // Check for existing user
           const existingUser = await db.user.findUnique({
-            where: { email: profile.email },
+            where: { email: googleProfile.email },
+            include: { accounts: true },
           });
 
-          // Create new user if doesn't exist
           if (!existingUser) {
             await db.user.create({
               data: {
-                email: profile.email,
-                name: profile.name || profile.email.split("@")[0],
-                image: profile.image,
+                email: googleProfile.email,
+                name: googleProfile.name || googleProfile.email.split("@")[0],
+                image: googleProfile.picture,
                 role: "USER",
                 emailVerified: new Date(),
                 accounts: {
                   create: {
-                    type: "oauth",
+                    type: account.type,
                     provider: account.provider,
                     providerAccountId: account.providerAccountId,
+                    access_token: account.access_token,
+                    expires_at: account.expires_at,
+                    token_type: account.token_type,
+                    scope: account.scope,
                   },
                 },
               },
             });
           } else {
-            // Link account if user exists but not this provider
-            const existingAccount = await db.account.findFirst({
-              where: {
-                userId: existingUser.id,
-                provider: account.provider,
+            await db.user.update({
+              where: { id: existingUser.id },
+              data: {
+                name: googleProfile.name || existingUser.name,
+                image: googleProfile.picture || existingUser.image,
+                emailVerified: existingUser.emailVerified || new Date(),
               },
             });
 
-            if (!existingAccount) {
+            const accountExists = existingUser.accounts.some(
+              (acc) =>
+                acc.provider === account.provider &&
+                acc.providerAccountId === account.providerAccountId
+            );
+
+            if (!accountExists) {
               await db.account.create({
                 data: {
                   userId: existingUser.id,
-                  type: "oauth",
+                  type: account.type,
                   provider: account.provider,
                   providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
                 },
               });
             }
@@ -243,33 +182,31 @@ export const authOptions: NextAuthOptions = {
         }
         return true;
       } catch (error) {
-        console.error("Authentication error:", error);
+        console.error("Authentication error:", {
+          error,
+          account,
+          profile,
+        });
         return false;
       }
     },
     async redirect({ url, baseUrl }) {
-      // Prevent redirect loops to login
       if (url.startsWith("/login")) return `${baseUrl}/dashboard`;
-
-      // Allow relative URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-
-      // Allow same-origin URLs
       if (new URL(url).origin === baseUrl) return url;
-
       return baseUrl;
     },
   },
   events: {
-    async linkAccount({ user, account }) {
-      console.log("Account linked:", {
-        userId: user.id,
-        provider: account.provider,
+    async linkAccount({ user }) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { emailVerified: new Date() },
       });
     },
     async signIn({ user, account, isNewUser }) {
       if (isNewUser && account?.provider === "google") {
-        console.log("New user created via Google:", user.email);
+        console.log("New Google user created:", user.email);
       }
     },
   },
