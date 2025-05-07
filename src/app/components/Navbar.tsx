@@ -25,7 +25,6 @@ export default function Navbar() {
         <Button
           variant="ghost"
           className="text-white hover:text-red-400 flex items-center gap-1 cursor-pointer"
-          // onClick={() => signOut()}
           onClick={() =>
             signOut({
               callbackUrl: "/login",

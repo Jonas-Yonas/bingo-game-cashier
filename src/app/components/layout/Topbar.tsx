@@ -59,7 +59,14 @@ export function Topbar() {
               <Settings className="mr-2 size-4" />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => signOut()}>
+            <DropdownMenuItem
+              onClick={() =>
+                signOut({
+                  callbackUrl: "/login",
+                  redirect: true,
+                })
+              }
+            >
               <LogOut className="mr-2 size-4" />
               <span>Sign out</span>
             </DropdownMenuItem>
