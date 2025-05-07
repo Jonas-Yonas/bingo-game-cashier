@@ -1,7 +1,7 @@
 import { Rocket, Users, Zap, Shield, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Topbar } from "./layout/Topbar";
+import { PublicTopbar } from "./PublicTopbar";
 
 const FEATURES = [
   {
@@ -26,7 +26,7 @@ export default function LandingClientPage() {
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-950">
       {/* Navbar with subtle border */}
 
-      <Topbar />
+      <PublicTopbar />
 
       {/* Hero Section */}
       <section className="container px-4 py-24 mx-auto text-center">

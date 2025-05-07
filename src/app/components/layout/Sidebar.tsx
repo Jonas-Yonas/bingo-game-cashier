@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Wallet,
@@ -10,72 +11,74 @@ import {
   ChevronFirst,
   Menu,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
-const sidebarItems = [
+const SIDEBAR_ITEMS = [
   {
     name: "Dashboard",
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: <LayoutDashboard className="size-5" />,
     href: "/dashboard",
   },
-  {
-    name: "Cashiers",
-    icon: <Users className="h-5 w-5" />,
-    href: "/cashiers",
-  },
-  {
-    name: "Shops",
-    icon: <ShoppingCart className="h-5 w-5" />,
-    href: "/shops",
-  },
+  { name: "Cashiers", icon: <Users className="size-5" />, href: "/cashiers" },
+  { name: "Shops", icon: <ShoppingCart className="size-5" />, href: "/shops" },
   {
     name: "Wallet History",
-    icon: <Wallet className="h-5 w-5" />,
+    icon: <Wallet className="size-5" />,
     href: "/wallet",
   },
-];
+] as const;
 
-export function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
+export function Sidebar({
+  isCollapsed,
+  setIsCollapsed,
+}: {
+  isCollapsed: boolean;
+  setIsCollapsed: (value: boolean) => void;
+}) {
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-10 flex flex-col border-r bg-background transition-all duration-300 ease-in-out",
+        "fixed h-screen z-10 bg-background border-r transition-all duration-300 ease-in-out",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
       <div className="flex h-16 items-center justify-between border-b px-4">
-        {!isCollapsed && <h1 className="text-lg font-semibold">Bingo Admin</h1>}
+        {!isCollapsed && (
+          <h1 className="text-lg font-semibold truncate">Bingo Admin</h1>
+        )}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8"
+          className="size-8"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
-            <Menu className="h-4 w-4" />
+            <Menu className="size-4" />
           ) : (
-            <ChevronFirst className="h-4 w-4" />
+            <ChevronFirst className="size-4" />
           )}
         </Button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-1">
-          {sidebarItems.map((item) => (
+          {SIDEBAR_ITEMS.map((item) => (
             <li key={item.name}>
-              <Link href={item.href}>
+              <Link href={item.href} legacyBehavior passHref>
                 <Button
+                  asChild
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start gap-3",
-                    isCollapsed && "justify-center"
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-0"
                   )}
                 >
-                  {item.icon}
-                  {!isCollapsed && item.name}
+                  <a>
+                    {item.icon}
+                    {!isCollapsed && (
+                      <span className="truncate">{item.name}</span>
+                    )}
+                  </a>
                 </Button>
               </Link>
             </li>

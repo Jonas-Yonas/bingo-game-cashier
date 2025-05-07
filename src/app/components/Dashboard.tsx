@@ -1,5 +1,6 @@
 "use client";
 
+import { Spinner } from "@/components/ui/spinner";
 import { useSession } from "next-auth/react";
 
 import Link from "next/link";
@@ -12,12 +13,17 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
+
+          <Spinner size="lg" />
+
+          {/* <Button disabled>
+  <Spinner size="sm" className="mr-2" />
+  Submitting...
+</Button> */}
         </div>
       </div>
     );
   }
-
-  console.log(session);
 
   return (
     <div className="min-h-screen bg-gray-50">
