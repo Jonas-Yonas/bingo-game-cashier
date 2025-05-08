@@ -1,7 +1,9 @@
 "use client";
+
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const error = useSearchParams().get("error");
 
   const errorMessages: Record<string, string> = {
@@ -24,5 +26,19 @@ export default function AuthErrorPage() {
         </a>
       </div>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <AuthErrorContent />
+    </Suspense>
   );
 }
