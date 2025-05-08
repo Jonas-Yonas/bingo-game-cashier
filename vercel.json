@@ -3,12 +3,11 @@
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/next"
+      "use": "@vercel/next",
+      "config": {
+        "installCommand": "npm install --force",
+        "buildCommand": "npm run vercel-build"
+      }
     }
-  ],
-  "build": {
-    "env": {
-      "PRISMA_GENERATE_IN_POSTINSTALL": "true"
-    }
-  }
+  ]
 }
