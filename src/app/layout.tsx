@@ -40,8 +40,8 @@ export default async function RootLayout({
       <body className={`${inter.variable} ${robotoMono.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <AuthProvider>
