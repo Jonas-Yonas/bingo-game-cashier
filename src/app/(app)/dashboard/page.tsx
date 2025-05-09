@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
-
-// import Dashboard from "@/app/components/Dashboard";
+import { ROLES } from "@/types";
+import Dashboard from "@/app/components/Dashboard";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -22,13 +22,13 @@ export default function DashboardPage() {
 
   if (!session) {
     redirect("/login");
+    return null;
   }
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold pb-6">Dashboard</h1>
-      <p>Welcome back, {session.user.email}</p>
 
-      {/* <Dashboard /> */}
-    </div>
-  );
+  if (session.user.role !== ROLES.CASHIER) {
+    redirect("/unauthorized");
+    return null;
+  }
+
+  return <Dashboard />;
 }

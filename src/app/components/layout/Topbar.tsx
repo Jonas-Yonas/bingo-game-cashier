@@ -19,7 +19,7 @@ export function Topbar() {
   const { data: session, status } = useSession();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 bg-background px-4 md:px-6 w-full bg-green-800 rounded-none bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-10 border border-gray-700">
       <Navbar />
 
       <div className="ml-auto flex justify-between items-center gap-4">
@@ -39,7 +39,10 @@ export function Topbar() {
               <span className="sr-only">User menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent
+            align="end"
+            className="w-56 bg-white/15 backdrop-blur-md shadow-lg rounded-lg"
+          >
             <DropdownMenuLabel>
               {status === "authenticated" ? (
                 <div className="flex flex-col">

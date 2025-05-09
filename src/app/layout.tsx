@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./providers/theme-provider";
-import AuthProvider from "./providers/AuthProvider";
 import { Toaster } from "sonner";
+import { auth } from "@/auth";
+import { ROLES } from "@/types";
+import AuthProvider from "./providers/AuthProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,18 +26,15 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+
   return (
     <html lang="en">
       <body className={`${inter.variable} ${robotoMono.variable} font-sans`}>
@@ -46,11 +45,25 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <RoleAwareApp>{children}</RoleAwareApp>
             <Toaster position="top-right" richColors />
           </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
+  );
+}
+
+async function RoleAwareApp({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  const role = session?.user?.role as keyof typeof ROLES | undefined;
+
+  return (
+    <>
+      {role === ROLES.CASHIER && (
+        <div className="cashier-banner">Cashier Mode</div>
+      )}
+      <div className="min-h-screen">{children}</div>
+    </>
   );
 }

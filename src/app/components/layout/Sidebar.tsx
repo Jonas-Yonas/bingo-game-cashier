@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
-  Wallet,
-  Users,
-  ShoppingCart,
+  Gamepad2,
+  Database,
+  User,
   ChevronFirst,
   Menu,
 } from "lucide-react";
@@ -18,12 +18,20 @@ const SIDEBAR_ITEMS = [
     icon: <LayoutDashboard className="size-5" />,
     href: "/dashboard",
   },
-  { name: "Cashiers", icon: <Users className="size-5" />, href: "/cashiers" },
-  { name: "Shops", icon: <ShoppingCart className="size-5" />, href: "/shops" },
   {
-    name: "Wallet History",
-    icon: <Wallet className="size-5" />,
-    href: "/wallet",
+    name: "Bingo Game",
+    icon: <Gamepad2 className="size-5" />,
+    href: "/bingo",
+  },
+  {
+    name: "Game Data",
+    icon: <Database className="size-5" />,
+    href: "/games",
+  },
+  {
+    name: "Profile",
+    icon: <User className="size-5" />,
+    href: "/profile",
   },
 ] as const;
 
@@ -37,11 +45,11 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed h-screen z-10 bg-background border-r transition-all duration-300 ease-in-out",
+        "fixed h-screen z-10 bg-background border-r transition-all duration-300 ease-in-out border border-gray-700",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b px-4">
+      <div className="flex h-16 items-center justify-between border-b px-4 border border-gray-700">
         {!isCollapsed && (
           <h1 className="text-lg font-semibold truncate">Bingo Admin</h1>
         )}

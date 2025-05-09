@@ -111,7 +111,8 @@ export function AuthForm({ isLogin = true }: { isLogin?: boolean }) {
         <div className="relative">
           <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="your@email.com"
+            placeholder="youremail@email.com"
+            value={`mimi@gmail.com`}
             className="pl-10 bg-gray-700/50 border-gray-700 text-white"
             {...register("email", { required: true })}
           />
@@ -130,6 +131,7 @@ export function AuthForm({ isLogin = true }: { isLogin?: boolean }) {
           <Input
             type="password"
             placeholder="••••••••"
+            value={`admin@admin`}
             className="pl-10 bg-gray-700/50 border-gray-700 text-white"
             {...register("password", {
               required: true,
