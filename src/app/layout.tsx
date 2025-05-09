@@ -36,8 +36,10 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${robotoMono.variable} font-sans`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${robotoMono.variable} font-sans dark:bg-[#020817] dark:text-gray-100`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
