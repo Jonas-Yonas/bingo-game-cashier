@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
           user.password
         );
 
-        if (!isValid) throw new Error("Incorrect password");
+        if (!isValid) throw new Error("Incorrect credential");
 
         // Ensure the role is correctly assigned as one of the allowed roles
         const role: "USER" | "CASHIER" | "ADMIN" =

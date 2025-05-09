@@ -7,7 +7,10 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
-    // Define the protected routes and roles required to access them
+    // Public routes that do not require authentication
+    const publicRoutes = ["/", "/login", "/register"];
+
+    // Protected routes and required roles
     const protectedRoutes = [
       { route: "/dashboard", roles: [ROLES.USER, ROLES.CASHIER] },
       { route: "/bingo", roles: [ROLES.CASHIER] },
@@ -15,12 +18,23 @@ export default withAuth(
       { route: "/profile", roles: [ROLES.USER, ROLES.CASHIER] },
     ];
 
-    // Check if the current route is in the protected routes array
-    const route = protectedRoutes.find((r) => pathname.startsWith(r.route));
+    // Skip auth checks for public routes
+    if (publicRoutes.includes(pathname)) {
+      return NextResponse.next();
+    }
 
-    if (route) {
-      // If the user doesn't have the right role, redirect them to unauthorized
-      if (!route.roles.includes(token?.role as keyof typeof ROLES)) {
+    // Handle protected routes
+    const matchedRoute = protectedRoutes.find((r) =>
+      pathname.startsWith(r.route)
+    );
+    if (matchedRoute) {
+      if (!token) {
+        return NextResponse.redirect(
+          new URL(`/login?callbackUrl=${encodeURIComponent(pathname)}`, req.url)
+        );
+      }
+
+      if (!matchedRoute.roles.includes(token.role as keyof typeof ROLES)) {
         return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
     }
@@ -29,11 +43,17 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // Ensure token exists
+      authorized: ({ req, token }) => {
+        const { pathname } = req.nextUrl;
+        // Bypass auth for public routes
+        if (["/", "/login", "/register"].includes(pathname)) return true;
+        // Require auth for all other routes
+        return !!token;
+      },
     },
     pages: {
-      signIn: "/login", // Redirect to login if the user is not signed in
-      error: "/unauthorized", // Redirect to unauthorized if the user is not authorized
+      signIn: "/login",
+      error: "/unauthorized",
     },
   }
 );
