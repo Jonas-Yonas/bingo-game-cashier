@@ -36,7 +36,7 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${robotoMono.variable} font-sans dark:bg-[#020817] dark:text-gray-100`}
       >
@@ -45,6 +45,7 @@ export default async function RootLayout({
           defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
+          storageKey="myapp-theme" // Unique key for the app
         >
           <AuthProvider>
             <RoleAwareApp>{children}</RoleAwareApp>
