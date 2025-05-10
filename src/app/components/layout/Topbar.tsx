@@ -19,7 +19,7 @@ export function Topbar() {
   const { data: session, status } = useSession();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 bg-background px-4 md:px-6 w-full bg-gray-400 bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-10 border border-gray-700">
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 bg-background px-4 md:px-6 w-full bg-gray-400 bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-10 border border-gray-800">
       <Navbar />
 
       <div className="ml-auto flex justify-between items-center gap-4">
@@ -58,11 +58,12 @@ export function Topbar() {
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem className="flex gap-1 w-full hover:text-emerald-300 cursor-pointer">
               <Settings className="mr-2 size-4" />
               <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuItem
+              className="flex gap-1 w-full hover:text-red-400 cursor-pointer"
               onClick={() =>
                 signOut({
                   callbackUrl: "/login",

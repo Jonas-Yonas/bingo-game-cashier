@@ -9,10 +9,15 @@ import { signOut } from "next-auth/react";
 export default function Navbar() {
   return (
     <nav className="container mx-auto py-4 px-6 flex justify-between items-center">
-      <div className="flex items-center gap-2">
+      <Link
+        href={"/dashboard"}
+        className="flex items-center gap-2 cursor-pointer"
+      >
         <RocketIcon className="h-6 w-6 text-emerald-400" />
-        <span className="font-bold text-white text-lg">Bingo Blast</span>
-      </div>
+        <span className="font-bold text-white text-lg hover:text-emerald-300 transition-colors duration-300 ease-in-out">
+          Bingo Blast
+        </span>
+      </Link>
       <div className="flex items-center gap-4">
         <ThemeToggle />
         <Link

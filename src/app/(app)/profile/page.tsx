@@ -143,8 +143,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8 px-2 sm:px-4">
-      <div className="mx-auto">
-        {/* max-w-4xl  */}
+      <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-8 gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">

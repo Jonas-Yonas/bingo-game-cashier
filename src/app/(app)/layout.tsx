@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 const CashierLayout = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status } = useSession();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (status === "loading")
     return (
