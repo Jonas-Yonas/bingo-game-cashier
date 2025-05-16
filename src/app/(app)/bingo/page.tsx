@@ -1,14 +1,17 @@
 "use client";
-
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
+import { useBingoStore } from "@/app/stores/bingoStore";
 
 type GameState = {
   selectedNumbers: number[];
 };
 
 export default function BingoGame() {
+  const router = useRouter();
+  const { players, setPlayers } = useBingoStore();
+
   const { data: session } = useSession({
     required: true,
     onUnauthenticated() {
@@ -32,6 +35,7 @@ export default function BingoGame() {
     setGameState({ selectedNumbers: [] });
     setTotalPlayers(0);
     setWinnerAmount(0);
+    setPlayers([]);
   };
 
   const toggleNumberSelection = (number: number) => {
@@ -40,6 +44,8 @@ export default function BingoGame() {
       const newSelected = isSelected
         ? prev.selectedNumbers.filter((n) => n !== number)
         : [...prev.selectedNumbers, number];
+
+      setPlayers(newSelected);
       setTotalPlayers(newSelected.length);
       setWinnerAmount(newSelected.length * betAmount);
       return { selectedNumbers: newSelected };
@@ -47,10 +53,12 @@ export default function BingoGame() {
   };
 
   const startGame = () => {
-    console.log("Starting game with:", gameState.selectedNumbers);
+    router.push("bingo/caller");
   };
 
-  const numbers = Array.from({ length: 150 }, (_, i) => i + 1); // 6 rows × 25 numbers
+  const numbers = Array.from({ length: 150 }, (_, i) => i + 1);
+
+  console.log(players);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
@@ -190,7 +198,7 @@ export default function BingoGame() {
               <button
                 key={number}
                 onClick={() => toggleNumberSelection(number)}
-                className={`aspect-square w-full flex items-center justify-center rounded-md text-white font-semibold text-sm transition-all ${
+                className={`aspect-square w-full flex items-center justify-center rounded-md text-white font-semibold text-base transition-all ${
                   gameState.selectedNumbers.includes(number)
                     ? "bg-red-500 shadow-md"
                     : "bg-blue-500 hover:bg-blue-600"
