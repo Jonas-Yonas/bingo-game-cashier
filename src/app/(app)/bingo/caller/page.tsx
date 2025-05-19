@@ -339,7 +339,7 @@ export default function BingoCallerPage() {
 
           {/* Current Amount to Bet */}
           <div className="flex items-center justify-end">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center ring-8 ring-blue-400           ring-offset-4 ring-offset-white shadow-lg animate-pulse transform transition duration-500 ease-in-out">
+            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center ring-8 ring-blue-400           ring-offset-4 ring-offset-white shadow-lg animate-pulse transform transition duration-500 ease-in-out">
               <PreviewPlayersDialog
                 trigger={
                   <button
