@@ -375,7 +375,7 @@ export default function BingoCallerPage() {
           </div>
 
           {/* Right Controls */}
-          <div className="grid grid-cols-1 gap-1 min-w-max">
+          <div className="grid grid-cols-1 gap-1 w-full">
             <div className="flex gap-1 h-10">
               <select
                 value={callerLanguage}
@@ -397,13 +397,13 @@ export default function BingoCallerPage() {
                   value={cardNumber}
                   onChange={(e) => setCardNumber(e.target.value)}
                   placeholder="Card #"
-                  className="flex-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-xs rounded-r-none"
+                  className="flex bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-xl rounded-r-none w-1/2"
                   min="1"
                 />
                 <button
                   onClick={checkWinner}
                   disabled={!cardNumber}
-                  className="bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded-l-none rounded text-xs disabled:bg-gray-400 w-32"
+                  className="bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded-l-none rounded text-xs disabled:bg-gray-400 w-1/2"
                 >
                   Check Winner
                 </button>
