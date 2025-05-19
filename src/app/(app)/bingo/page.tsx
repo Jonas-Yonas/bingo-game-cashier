@@ -273,7 +273,7 @@ export default function BingoGame() {
         </div>
 
         {/* Enhanced Wallet Messages */}
-        {walletAmount <= 0 && (
+        {/* {walletAmount <= 0 && (
           <div className="text-red-500 text-sm">
             Wallet balance is empty! Please top up to start a new game.
           </div>
@@ -282,7 +282,7 @@ export default function BingoGame() {
           <div className="text-green-500 text-sm">
             Ready to start game with {players.length} players
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
