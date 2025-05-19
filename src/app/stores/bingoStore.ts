@@ -36,6 +36,8 @@ interface BingoGameState {
 
   setBetAmount: (amount: number) => void;
   topUpWallet: (amount: number, note?: string) => void;
+
+  playBingoSound: () => void;
 }
 
 export const useBingoStore = create<BingoGameState>((set, get) => ({
@@ -175,4 +177,9 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
         },
       ],
     })),
+
+  playBingoSound: () => {
+    const audio = new Audio("/audios/bingo.mp3");
+    audio.play().catch((e) => console.error("Audio play failed:", e));
+  },
 }));

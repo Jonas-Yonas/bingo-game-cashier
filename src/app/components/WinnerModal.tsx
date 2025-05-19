@@ -21,8 +21,14 @@ export default function WinnerModal({
   lastCalledNumber,
   onClose,
 }: WinnerModalProps) {
-  const { calledNumbers, removePlayer, addLockedNumber, lockedNumbers } =
-    useBingoStore();
+  const {
+    calledNumbers,
+    removePlayer,
+    addLockedNumber,
+    lockedNumbers,
+    playBingoSound,
+  } = useBingoStore();
+
   const [cardNumbers, setCardNumbers] = useState<number[]>([]);
   const [winnerPatterns, setWinnerPatterns] = useState<string[]>([]);
   const [matchedCells, setMatchedCells] = useState<Set<number>>(new Set());
@@ -77,6 +83,8 @@ export default function WinnerModal({
 
     setWinnerPatterns(patterns);
     setMatchedCells(matchedIndexes);
+
+    if (patterns.length >= 3) playBingoSound();
   };
 
   const handleLockCard = () => {

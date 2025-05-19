@@ -42,6 +42,7 @@ export default function BingoGame() {
     }
   }, [session]);
 
+  const [loading, setLoading] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     selectedNumbers: [],
   });
@@ -73,8 +74,12 @@ export default function BingoGame() {
 
   // Start game handler
   const startGame = () => {
+    setLoading(true);
+
     useBingoStore.getState().startGame(); // performs calculation + deduction
     router.push("bingo/caller");
+
+    setLoading(false);
   };
 
   // Numbers for the board
@@ -262,13 +267,14 @@ export default function BingoGame() {
           <button
             onClick={startGame}
             disabled={!canStartGame()}
-            className={`px-6 py-3 rounded-lg text-sm font-medium shadow-md transition-colors ${
+            className={`px-10 py-3 rounded-lg text-sm font-medium shadow-md transition-colors ${
               canStartGame()
                 ? "bg-green-600 hover:bg-green-700 text-white"
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
             }`}
           >
-            Start Game
+            {loading && <Spinner className="w-4 h-4 animate-spin" />}
+            {loading ? "Starting..." : "Start Game"}
           </button>
         </div>
 

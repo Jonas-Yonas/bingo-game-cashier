@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import WinnerModal from "@/app/components/WinnerModal";
@@ -9,8 +10,12 @@ import { BINGO_CARDS } from "@/app/lib/utils";
 
 import { ConfirmResetDialog } from "@/app/components/ConfirmResetDialog";
 import { PreviewPlayersDialog } from "@/app/components/CustomPreviewDialog";
+import useAudioManager from "@/app/hooks/useAudioManager";
+import { checkAudioFilesLoaded, clearDatabase } from "@/lib/dexieDatabase";
 
 export default function BingoCallerPage() {
+  const { playAudio } = useAudioManager();
+
   const { data: session, status } = useSession();
   const router = useRouter();
   const {
@@ -39,13 +44,14 @@ export default function BingoCallerPage() {
   // Game state
   const [currentCall, setCurrentCall] = useState<string | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-  const [callerLanguage, setCallerLanguage] = useState("English");
-  //   const [gameAmount, setGameAmount] = useState(12500);
+  const [callerLanguage, setCallerLanguage] = useState("Amharic");
   const [cardNumber, setCardNumber] = useState("");
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [lastCheckedCard, setLastCheckedCard] = useState<string | null>(null);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
+  const [narrator, setNarrator] = useState<"en" | "am">("am"); // 'am' for Amharic audio, 'en' for English TTS
 
   // Initialize shuffled numbers
   useEffect(() => {
@@ -111,10 +117,68 @@ export default function BingoCallerPage() {
     const letter = getLetterForNumber(num);
     const call = `${letter}${num}`;
 
+    // Audio announcement
+    if (narrator === "am") {
+      playAudio(`${letter.toLowerCase()}${num}Audio`);
+    } else {
+      // English TTS
+      const synth = window.speechSynthesis;
+      const utterance = new SpeechSynthesisUtterance();
+      utterance.text = `${letter}-${num}`;
+      const voice = synth
+        .getVoices()
+        .find((v) =>
+          v.name.includes("Microsoft David - English (United States)")
+        );
+      if (voice) utterance.voice = voice;
+      synth.speak(utterance);
+    }
+
     callNumber(num);
     setCurrentCall(call);
     return num;
-  }, [shuffledNumbers, calledNumbers, lockedNumbers, callNumber]);
+  }, [
+    shuffledNumbers,
+    calledNumbers,
+    lockedNumbers,
+    callNumber,
+    playAudio,
+    narrator,
+  ]);
+
+  const startAutoPlay = () => {
+    setIsAutoPlaying(true);
+    playAudio("start");
+    toast.success("Auto-play started");
+  };
+
+  const pauseAutoPlay = async () => {
+    try {
+      await playAudio("stop");
+      setIsAutoPlaying(false);
+      toast("Auto-play paused");
+    } catch (error) {
+      console.error("Error stopping game:", error);
+    }
+  };
+
+  const handleResetBoard = () => {
+    resetGame();
+    resetCalledNumbers();
+
+    setCurrentCall(null);
+    toast("Board has been reset");
+    router.push("/bingo");
+    setConfirmResetOpen(false);
+  };
+
+  const shuffleNumbers = () => {
+    const newShuffled = shuffleArray([...calledNumbers]);
+    resetCalledNumbers();
+    newShuffled.forEach((num) => callNumber(num));
+    playAudio("shuffle");
+    toast.success("Numbers have been reshuffled");
+  };
 
   // Auto-play functionality
   useEffect(() => {
@@ -133,32 +197,35 @@ export default function BingoCallerPage() {
     }
   }, [setPlayers]);
 
-  const startAutoPlay = () => {
-    setIsAutoPlaying(true);
-    toast.success("Auto-play started");
-  };
+  useEffect(() => {
+    return () => {
+      // Cancel any pending speech
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
-  const pauseAutoPlay = () => {
-    setIsAutoPlaying(false);
-    toast("Auto-play paused");
-  };
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        console.log("Checking audio files...");
+        const result = await checkAudioFilesLoaded();
+        console.log("Audio load result:", result);
 
-  const handleResetBoard = () => {
-    resetGame();
-    resetCalledNumbers();
+        if (result === "Audio files are successfully loaded.") {
+          console.log("Audio files verified");
+        } else {
+          console.warn("Audio files need to be reloaded");
+          // Force reload audio files
+          await clearDatabase();
+          await checkAudioFilesLoaded();
+        }
+      } catch (error) {
+        console.error("Audio initialization failed:", error);
+      }
+    };
 
-    setCurrentCall(null);
-    toast("Board has been reset");
-    router.push("/bingo");
-    setConfirmResetOpen(false);
-  };
-
-  const shuffleNumbers = () => {
-    const newShuffled = shuffleArray([...calledNumbers]);
-    resetCalledNumbers();
-    newShuffled.forEach((num) => callNumber(num));
-    toast.success("Numbers have been reshuffled");
-  };
+    initialize();
+  }, []);
 
   if (status === "loading" || !session) return null;
 
@@ -291,12 +358,16 @@ export default function BingoCallerPage() {
             <button
               onClick={shuffleNumbers}
               disabled={calledNumbers.length === 0}
+              //   disabled
               className="bg-pink-600 hover:bg-pink-700 text-white px-1 py-0.5 rounded text-xs disabled:bg-gray-400"
             >
               Shuffle
             </button>
             <button
-              onClick={() => setConfirmResetOpen(true)}
+              onClick={() => {
+                setIsAutoPlaying(false);
+                setConfirmResetOpen(true);
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white px-1 py-0.5 rounded text-xs"
             >
               Reset
@@ -308,7 +379,10 @@ export default function BingoCallerPage() {
             <div className="flex gap-1 h-10">
               <select
                 value={callerLanguage}
-                onChange={(e) => setCallerLanguage(e.target.value)}
+                onChange={(e) => {
+                  setCallerLanguage(e.target.value);
+                  setNarrator(e.target.value === "English" ? "en" : "am");
+                }}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-xs"
               >
                 <option value="English">English</option>
