@@ -7,14 +7,19 @@ import { useBingoStore } from "@/app/stores/bingoStore";
 import { toast } from "sonner";
 import { BINGO_CARDS } from "@/app/lib/utils";
 
+import { ConfirmResetDialog } from "@/app/components/ConfirmResetDialog";
+import { PreviewPlayersDialog } from "@/app/components/CustomPreviewDialog";
+
 export default function BingoCallerPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const {
     players,
     calledNumbers,
+    prizePool,
     callNumber,
     resetCalledNumbers,
+    resetGame,
     setPlayers,
     removePlayer,
     lockedNumbers,
@@ -35,11 +40,12 @@ export default function BingoCallerPage() {
   const [currentCall, setCurrentCall] = useState<string | null>(null);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [callerLanguage, setCallerLanguage] = useState("English");
-  const [gameAmount, setGameAmount] = useState(12500);
+  //   const [gameAmount, setGameAmount] = useState(12500);
   const [cardNumber, setCardNumber] = useState("");
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [lastCheckedCard, setLastCheckedCard] = useState<string | null>(null);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   // Initialize shuffled numbers
   useEffect(() => {
@@ -60,7 +66,13 @@ export default function BingoCallerPage() {
     return "O";
   };
 
+  const previewActivePlayers = () => {
+    setIsAutoPlaying(false);
+  };
+
   const checkWinner = () => {
+    setIsAutoPlaying(false);
+
     if (!cardNumber) return;
 
     // Check if card is locked first
@@ -89,6 +101,8 @@ export default function BingoCallerPage() {
     );
 
     if (available.length === 0) {
+      setIsAutoPlaying(false);
+
       toast.error("All numbers have been called!");
       return null;
     }
@@ -129,11 +143,14 @@ export default function BingoCallerPage() {
     toast("Auto-play paused");
   };
 
-  const resetBoard = () => {
+  const handleResetBoard = () => {
+    resetGame();
     resetCalledNumbers();
+
     setCurrentCall(null);
-    router.push("/bingo");
     toast("Board has been reset");
+    router.push("/bingo");
+    setConfirmResetOpen(false);
   };
 
   const shuffleNumbers = () => {
@@ -142,14 +159,6 @@ export default function BingoCallerPage() {
     newShuffled.forEach((num) => callNumber(num));
     toast.success("Numbers have been reshuffled");
   };
-
-  //   const lockCurrentCard = () => {
-  //     if (!lastCheckedCard) return;
-  //     addLockedNumber(Number(lastCheckedCard));
-  //     removePlayer(Number(lastCheckedCard));
-  //     toast.success(`Card ${lastCheckedCard} locked and removed from game`);
-  //     setLastCheckedCard(null);
-  //   };
 
   if (status === "loading" || !session) return null;
 
@@ -287,7 +296,7 @@ export default function BingoCallerPage() {
               Shuffle
             </button>
             <button
-              onClick={resetBoard}
+              onClick={() => setConfirmResetOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-1 py-0.5 rounded text-xs"
             >
               Reset
@@ -329,14 +338,32 @@ export default function BingoCallerPage() {
           </div>
 
           {/* Current Amount to Bet */}
-          <div className="flex items-center justify-center">
-            <div
-              className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center ring-8 ring-blue-400           ring-offset-4 ring-offset-white shadow-lg animate-pulse transform
-            hover:scale-105 transition duration-500 ease-in-out"
-            >
-              <span className="text-3xl font-extrabold text-white drop-shadow-lg select-none">
-                {Math.floor(gameAmount / 1000)}K
-              </span>
+          <div className="flex items-center justify-end">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center ring-8 ring-blue-400           ring-offset-4 ring-offset-white shadow-lg animate-pulse transform transition duration-500 ease-in-out">
+              <PreviewPlayersDialog
+                trigger={
+                  <button
+                    className="px-6 py-3 rounded-lg"
+                    onClick={previewActivePlayers}
+                  >
+                    <span className="text-2xl font-extrabold text-white drop-shadow-lg select-none">
+                      {prizePool < 1000
+                        ? prizePool
+                        : Math.round(prizePool / 1000) + "K"}
+                    </span>
+                  </button>
+                }
+              />
+              {/* Player count badge */}
+              {players.length > 0 && (
+                <div
+                  className="absolute -top-2 -right-6 bg-red-500 text-white text-xs 
+                     font-bold rounded-full w-6 h-6 p-4 flex items-center justify-center
+                     shadow-md animate-bounce"
+                >
+                  {players.length}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -350,6 +377,17 @@ export default function BingoCallerPage() {
           onClose={() => setShowWinnerModal(false)}
         />
       )}
+
+      {/* Reset Modal */}
+      <ConfirmResetDialog
+        open={confirmResetOpen}
+        onConfirm={handleResetBoard}
+        onCancel={() => setConfirmResetOpen(false)}
+        title="Reset the board?"
+        description="This will clear all players, called numbers, and prize pool."
+        confirmText="Reset"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

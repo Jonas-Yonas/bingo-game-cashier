@@ -8,6 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 interface WinnerModalProps {
   cardNumber: string;
@@ -34,79 +35,53 @@ export default function WinnerModal({
     const cardData = BINGO_CARDS[cardNumber as keyof typeof BINGO_CARDS] || [];
     setCardNumbers(cardData);
     checkWinningPatterns(cardData);
-  }, [cardNumber, calledNumbers]);
+  }, [cardNumber, calledNumbers, lastCalledValue]);
 
   const isNumberCalled = (num: number) =>
     num === 0 || calledNumbers.includes(num);
 
   const checkWinningPatterns = (cardNums: number[]) => {
     const patterns: string[] = [];
-
-    for (let i = 0; i < 25; i += 5) {
-      const row = cardNums.slice(i, i + 5);
-      if (row.every(isNumberCalled)) {
-        patterns.push(`Horizontal Line ${i / 5 + 1}`);
-      }
-    }
-
-    for (let i = 0; i < 5; i++) {
-      const col = [
-        cardNums[i],
-        cardNums[i + 5],
-        cardNums[i + 10],
-        cardNums[i + 15],
-        cardNums[i + 20],
-      ];
-      if (col.every(isNumberCalled)) {
-        patterns.push(`Vertical Line ${i + 1}`);
-      }
-    }
-
-    const diag1 = [
-      cardNums[0],
-      cardNums[6],
-      cardNums[12],
-      cardNums[18],
-      cardNums[24],
-    ];
-    const diag2 = [
-      cardNums[4],
-      cardNums[8],
-      cardNums[12],
-      cardNums[16],
-      cardNums[20],
-    ];
-
-    if (diag1.every(isNumberCalled)) patterns.push("Diagonal (↘)");
-    if (diag2.every(isNumberCalled)) patterns.push("Diagonal (↙)");
-
-    const corners = [cardNums[0], cardNums[4], cardNums[20], cardNums[24]];
-    if (corners.every(isNumberCalled)) patterns.push("Four Corners");
-
-    setWinnerPatterns(patterns);
-
     const matchedIndexes = new Set<number>();
 
-    patterns.forEach((pattern) => {
-      if (pattern.startsWith("Horizontal Line")) {
-        const line = parseInt(pattern.split(" ")[2]) - 1;
-        for (let i = 0; i < 5; i++) matchedIndexes.add(line * 5 + i);
-      } else if (pattern.startsWith("Vertical Line")) {
-        const col = parseInt(pattern.split(" ")[2]) - 1;
-        for (let i = 0; i < 5; i++) matchedIndexes.add(col + i * 5);
-      } else if (pattern === "Diagonal (↘)") {
-        [0, 6, 12, 18, 24].forEach((i) => matchedIndexes.add(i));
-      } else if (pattern === "Diagonal (↙)") {
-        [4, 8, 12, 16, 20].forEach((i) => matchedIndexes.add(i));
-      } else if (pattern === "Four Corners") {
-        [0, 4, 20, 24].forEach((i) => matchedIndexes.add(i));
-      }
-    });
+    const addPatternIfValid = (indexes: number[], label: string) => {
+      const nums = indexes.map((i) => cardNums[i]);
+      const isAllCalled = nums.every(isNumberCalled);
+      const includesLastCalled =
+        lastCalledValue !== null && nums.includes(lastCalledValue!);
 
+      if (isAllCalled && includesLastCalled) {
+        patterns.push(label);
+        indexes.forEach((i) => matchedIndexes.add(i));
+      }
+    };
+
+    // Horizontal lines
+    for (let i = 0; i < 25; i += 5) {
+      const indexes = [i, i + 1, i + 2, i + 3, i + 4];
+      addPatternIfValid(indexes, `Horizontal Line ${i / 5 + 1}`);
+    }
+
+    // Vertical lines
+    for (let i = 0; i < 5; i++) {
+      const indexes = [i, i + 5, i + 10, i + 15, i + 20];
+      addPatternIfValid(indexes, `Vertical Line ${i + 1}`);
+    }
+
+    // Diagonals
+    addPatternIfValid([0, 6, 12, 18, 24], "Diagonal (↘)");
+    addPatternIfValid([4, 8, 12, 16, 20], "Diagonal (↙)");
+
+    // Corners
+    addPatternIfValid([0, 4, 20, 24], "Four Corners");
+
+    setWinnerPatterns(patterns);
     setMatchedCells(matchedIndexes);
   };
 
   const handleLockCard = () => {
+    toast.warning("Card locked :( ");
+
     addLockedNumber(Number(cardNumber));
     removePlayer(Number(cardNumber));
     onClose();
@@ -116,14 +91,11 @@ export default function WinnerModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 px-2">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 sm:p-8 max-w-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header Title */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 sm:px-12 max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <h3 className="text-2xl font-bold text-center mb-6">
           {isCardLocked ? (
             <span className="text-red-500">🔒 Card Locked</span>
-          ) : winnerPatterns.length >= 3 &&
-            lastCalledValue !== null &&
-            cardNumbers.includes(lastCalledValue) ? (
+          ) : winnerPatterns.length >= 3 ? (
             <span className="text-green-600 animate-pulse">
               🎉 You're a Winner! 🎉
             </span>
@@ -134,7 +106,6 @@ export default function WinnerModal({
           )}
         </h3>
 
-        {/* Stats Section */}
         <div className="flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 mb-4 text-sm sm:text-base">
           <p>
             <strong>Card:</strong> {cardNumber}
@@ -158,7 +129,6 @@ export default function WinnerModal({
           )}
         </div>
 
-        {/* Bingo Card Grid - Only show if not locked */}
         {!isCardLocked && (
           <div className="grid grid-cols-5 gap-2 mb-6">
             {cardNumbers.map((num, index) => {
@@ -169,9 +139,11 @@ export default function WinnerModal({
               return (
                 <div
                   key={index}
-                  className={`p-2 sm:p-3 text-xl font-semibold border border-gray-300 dark:border-gray-600 rounded-lg text-center relative transition-all
+                  className={`p-2 sm:p-3 text-xl font-semibold border border-gray-300 dark:border-gray-600 rounded-md text-center relative transition-all
                     ${
-                      isCalled
+                      isMatch
+                        ? "bg-yellow-400 text-black font-bold"
+                        : isCalled
                         ? "bg-emerald-600 text-white"
                         : "bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700"
                     }
@@ -180,7 +152,7 @@ export default function WinnerModal({
                 >
                   {num === 0 ? "FREE" : num}
                   {isLast && (
-                    <div className="absolute -top-2 -right-2 bg-yellow-400 text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow">
+                    <div className="absolute -top-2 -right-2 bg-lime-400 text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow">
                       !
                     </div>
                   )}
@@ -190,7 +162,6 @@ export default function WinnerModal({
           </div>
         )}
 
-        {/* Matched Patterns - Only show if not locked */}
         {!isCardLocked && winnerPatterns.length > 0 && (
           <div className="mb-4">
             <Popover>
@@ -224,7 +195,6 @@ export default function WinnerModal({
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="mt-auto flex justify-between pt-3 border-t">
           {!isCardLocked && (
             <button

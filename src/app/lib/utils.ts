@@ -54,5 +54,5 @@ export const generateBingoCards = (count: number) => {
   return cards;
 };
 
-// Pre-generate 150 cards (you can save this to a JSON file)
-export const BINGO_CARDS = generateBingoCards(150);
+// Pre-generate 200 cards (you can save this to a JSON file)
+export const BINGO_CARDS = generateBingoCards(200);

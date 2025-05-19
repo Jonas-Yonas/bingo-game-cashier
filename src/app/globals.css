@@ -89,10 +89,36 @@
     border-top: 1px solid var(--sidebar-border); /* Also apply to navbar if needed */
   }
 
+  body,
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+
   body {
     background-color: oklch(var(--background));
     color: oklch(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
     transition: background-color 0.3s ease, color 0.3s ease;
+
+    overflow-y: scroll;
   }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.animate-bounce {
+  animation: bounce 1.5s infinite;
 }

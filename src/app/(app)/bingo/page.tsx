@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { useBingoStore } from "@/app/stores/bingoStore";
+import { Spinner } from "@/components/ui/spinner";
 
 type GameState = {
   selectedNumbers: number[];
@@ -10,34 +12,47 @@ type GameState = {
 
 export default function BingoGame() {
   const router = useRouter();
-  const { players, setPlayers } = useBingoStore();
-
-  const { data: session } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/(public)/(auth)/login");
     },
   });
 
-  if (session?.user?.role !== "CASHIER") {
-    redirect("/unauthorized");
-  }
+  // Get all store methods and state
+  const {
+    players,
+    setPlayers,
+    betAmount,
+    setBetAmount,
+    prizePool,
+    getWalletBalance,
+    canStartGame,
+    addPlayer,
+    removePlayer,
+    walletTransactions, // Add this if you want to display transaction history
+  } = useBingoStore();
+
+  // Calculate current wallet amount
+  const walletAmount = getWalletBalance();
+
+  useEffect(() => {
+    if (session && session.user.role !== "CASHIER") {
+      router.push("/unauthorized");
+    }
+  }, [session]);
 
   const [gameState, setGameState] = useState<GameState>({
     selectedNumbers: [],
   });
-  const [betAmount, setBetAmount] = useState<number>(30);
-  const [totalPlayers, setTotalPlayers] = useState<number>(0);
-  const [winnerAmount, setWinnerAmount] = useState<number>(0);
-  const [walletAmount, setWalletAmount] = useState<number>(5000);
 
+  // Clear all selections
   const clearSelection = () => {
     setGameState({ selectedNumbers: [] });
-    setTotalPlayers(0);
-    setWinnerAmount(0);
     setPlayers([]);
   };
 
+  // Toggle number selection and manage players
   const toggleNumberSelection = (number: number) => {
     setGameState((prev) => {
       const isSelected = prev.selectedNumbers.includes(number);
@@ -45,36 +60,52 @@ export default function BingoGame() {
         ? prev.selectedNumbers.filter((n) => n !== number)
         : [...prev.selectedNumbers, number];
 
-      setPlayers(newSelected);
-      setTotalPlayers(newSelected.length);
-      setWinnerAmount(newSelected.length * betAmount);
-      return { selectedNumbers: newSelected };
+      // Update players in store - only need to call one method
+      if (isSelected) {
+        removePlayer(number);
+      } else {
+        addPlayer(number); // This now handles duplicates
+      }
+
+      return { selectedNumbers: isSelected ? newSelected : newSelected };
     });
   };
 
+  // Start game handler
   const startGame = () => {
+    useBingoStore.getState().startGame(); // performs calculation + deduction
     router.push("bingo/caller");
   };
 
-  const numbers = Array.from({ length: 150 }, (_, i) => i + 1);
+  // Numbers for the board
+  const numbers = Array.from({ length: 200 }, (_, i) => i + 1);
 
-  console.log(players);
+  useEffect(() => {
+    setGameState({ selectedNumbers: players });
+  }, [players]);
+
+  if (status === "loading") {
+    return (
+      <div className="p-4">
+        <Spinner />
+        <span>Loading game...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 p-3 shadow-sm rounded-lg mx-4 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80">
+      <div className="shadow-sm rounded-lg mx-4 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80">
         <div className="grid grid-cols-4 gap-3 w-full">
-          {/* Bet Selector */}
+          {/* Bet Selector (Fixed) */}
           <div className="flex flex-col items-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 shadow-xs relative group">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider mb-2">
               Bet Amount
             </span>
-
-            {/* Main input with buttons */}
             <div className="flex items-center w-full">
               <button
-                onClick={() => setBetAmount((prev) => Math.max(1, prev - 1))}
+                onClick={() => setBetAmount(Math.max(1, betAmount - 1))}
                 className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-l-lg px-3 py-2 h-10 flex items-center justify-center border border-r-0 border-gray-300 dark:border-gray-600 transition-colors"
               >
                 <svg
@@ -92,20 +123,22 @@ export default function BingoGame() {
                   />
                 </svg>
               </button>
-
               <input
                 type="number"
                 value={betAmount}
                 onChange={(e) => {
-                  const value = Math.max(1, Number(e.target.value));
-                  setBetAmount(isNaN(value) ? 1 : value);
+                  const value = Math.max(
+                    1,
+                    Math.min(1000, Number(e.target.value) || 1)
+                  );
+                  setBetAmount(value);
                 }}
                 min="1"
-                className="flex-1 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:outline-none px-3 py-2 h-10 text-sm border-y border-gray-300 dark:border-gray-600 w-20"
+                max="1000"
+                className="flex-1 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:outline-none px-3 py-2 h-10 text-2xl border-y border-gray-300 dark:border-gray-600 w-20"
               />
-
               <button
-                onClick={() => setBetAmount((prev) => prev + 1)}
+                onClick={() => setBetAmount(betAmount + 1)}
                 className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-r-lg px-3 py-2 h-10 flex items-center justify-center border border-l-0 border-gray-300 dark:border-gray-600 transition-colors"
               >
                 <svg
@@ -124,8 +157,7 @@ export default function BingoGame() {
                 </svg>
               </button>
             </div>
-
-            {/* Quick-select popover - appears on hover */}
+            {/* Quick-select options */}
             <div className="absolute top-full mt-2 w-full opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
               <div className="bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg">
                 <div className="flex flex-wrap justify-center gap-2">
@@ -145,8 +177,6 @@ export default function BingoGame() {
                 </div>
               </div>
             </div>
-
-            {/* Small indicator that quick options exist */}
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Hover for quick options
             </div>
@@ -157,18 +187,19 @@ export default function BingoGame() {
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
               Players
             </span>
-            <span className="mt-1 text-xl font-bold text-blue-600 dark:text-blue-400">
-              {totalPlayers}
+            <span className="mt-1 text-4xl font-bold text-blue-600 dark:text-blue-400">
+              {players.length}
             </span>
           </div>
 
-          {/* Winner Amount */}
+          {/* Prize Pool */}
           <div className="flex flex-col items-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 shadow-xs">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
               Prize Pool
             </span>
-            <span className="mt-1 text-xl font-bold text-green-600 dark:text-green-400">
-              ${winnerAmount.toLocaleString()}
+            <span className="flex items-center mt-1 text-4xl font-bold text-green-600 dark:text-green-400">
+              <span className="text-xl font-medium text-gray-300">$</span>
+              {prizePool.toLocaleString()}
             </span>
           </div>
 
@@ -177,31 +208,39 @@ export default function BingoGame() {
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
               Wallet
             </span>
-            <span className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400">
-              ${walletAmount.toLocaleString()}
+            <span
+              className={`flex items-center mt-1 text-4xl font-bold ${
+                walletAmount >= 0
+                  ? "text-purple-600 dark:text-purple-400"
+                  : "text-red-500 dark:text-red-400"
+              }`}
+            >
+              <span className="text-xl font-medium text-gray-300">$</span>
+              {walletAmount.toLocaleString()}
             </span>
+            <span className="text-xs text-blue-500 mt-1">Base: $ 5000</span>
           </div>
         </div>
       </div>
 
-      {/* Bingo Board - Changed padding from p-4 to p-2 to reduce gap */}
-      <div className="flex-1 p-2 w-full max-h-max my-6 overflow-y-auto">
+      {/* Bingo Board */}
+      <div className="flex-1 px-2 w-full max-h-fit mt-4 overflow-y-auto">
         <div className="lg:overflow-x-hidden overflow-x-auto">
           <div
             className="grid min-w-[900px] lg:min-w-0"
             style={{
               gridTemplateColumns: "repeat(25, minmax(0, 1fr))",
-              gap: "0.5rem",
+              gap: "0.3rem",
             }}
           >
             {numbers.map((number) => (
               <button
                 key={number}
                 onClick={() => toggleNumberSelection(number)}
-                className={`aspect-square w-full flex items-center justify-center rounded-md text-white font-semibold text-base transition-all ${
+                className={`aspect-square w-full flex items-center justify-center rounded text-white font-semibold text-lg transition-all ${
                   gameState.selectedNumbers.includes(number)
                     ? "bg-red-500 shadow-md"
-                    : "bg-blue-500 hover:bg-blue-600"
+                    : "bg-blue-600 hover:bg-blue-900"
                 }`}
               >
                 {number}
@@ -211,21 +250,39 @@ export default function BingoGame() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="bg-white dark:bg-gray-800 p-4 flex justify-center gap-6">
-        <button
-          onClick={clearSelection}
-          className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg text-sm font-medium shadow-md transition-colors"
-        >
-          Clear Selection
-        </button>
-        <button
-          onClick={startGame}
-          disabled={gameState.selectedNumbers.length === 0}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-sm font-medium shadow-md transition-colors disabled:bg-gray-400 disabled:shadow-none"
-        >
-          Start Game
-        </button>
+      {/* Footer Buttons */}
+      <div className="p-4 flex flex-col items-center gap-3">
+        <div className="flex gap-6">
+          <button
+            onClick={clearSelection}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg text-sm font-medium shadow-md transition-colors"
+          >
+            Clear Selection
+          </button>
+          <button
+            onClick={startGame}
+            disabled={!canStartGame()}
+            className={`px-6 py-3 rounded-lg text-sm font-medium shadow-md transition-colors ${
+              canStartGame()
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-gray-400 text-gray-600 cursor-not-allowed"
+            }`}
+          >
+            Start Game
+          </button>
+        </div>
+
+        {/* Enhanced Wallet Messages */}
+        {walletAmount <= 0 && (
+          <div className="text-red-500 text-sm">
+            Wallet balance is empty! Please top up to start a new game.
+          </div>
+        )}
+        {players.length > 0 && walletAmount > 0 && (
+          <div className="text-green-500 text-sm">
+            Ready to start game with {players.length} players
+          </div>
+        )}
       </div>
     </div>
   );
