@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
 import { ROLES } from "@/types";
 import Dashboard from "@/app/components/Dashboard";
+import { loadAllAudiosSimple } from "@/lib/dexieDatabase";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -28,6 +29,15 @@ export default function DashboardPage() {
   if (session.user.role !== ROLES.CASHIER) {
     redirect("/unauthorized");
     return null;
+  }
+
+  if (session?.user.role === ROLES.CASHIER) {
+    // Start loading audios in the background
+    loadAllAudiosSimple()
+      .then((success) => {
+        if (success) console.log("All audio files loaded!");
+      })
+      .catch((err) => console.error("Audio loading error:", err));
   }
 
   return <Dashboard />;

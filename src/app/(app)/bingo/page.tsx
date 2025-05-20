@@ -36,6 +36,9 @@ export default function BingoGame() {
   // Calculate current wallet amount
   const walletAmount = getWalletBalance();
 
+  // Numbers for the board
+  const numbers = Array.from({ length: 200 }, (_, i) => i + 1);
+
   useEffect(() => {
     if (session && session.user.role !== "CASHIER") {
       router.push("/unauthorized");
@@ -45,6 +48,7 @@ export default function BingoGame() {
   const [gameState, setGameState] = useState<GameState>({
     selectedNumbers: [],
   });
+  const [isStarting, setIsStarting] = useState(false);
 
   // Clear all selections
   const clearSelection = () => {
@@ -73,12 +77,18 @@ export default function BingoGame() {
 
   // Start game handler
   const startGame = async () => {
-    useBingoStore.getState().startGame(); // performs calculation + deduction
-    router.push("bingo/caller");
-  };
+    if (!canStartGame()) return;
 
-  // Numbers for the board
-  const numbers = Array.from({ length: 200 }, (_, i) => i + 1);
+    setIsStarting(true);
+
+    try {
+      useBingoStore.getState().startGame(); // performs calculation + deduction
+      await router.push("bingo/caller"); // or next step in game
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setIsStarting(false); // Re-enable if navigation fails
+    }
+  };
 
   useEffect(() => {
     setGameState({ selectedNumbers: players });
@@ -268,7 +278,7 @@ export default function BingoGame() {
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
             }`}
           >
-            Start Game
+            {isStarting ? "Starting..." : "Start Game"}
           </button>
         </div>
 

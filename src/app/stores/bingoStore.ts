@@ -55,7 +55,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
 
   canStartGame: () => {
     const { players, getWalletBalance } = get();
-    return players.length > 0 && getWalletBalance() >= 0;
+    return players.length >= 2 && getWalletBalance() >= 0;
   },
 
   getWalletBalance: () => {
@@ -84,8 +84,6 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
     }));
     get().recalculatePrizePool(); // 🔁 Update prize pool after removing
   },
-
-  //   setPlayers: (players) => set({ players }),
 
   setPlayers: (players) => {
     set({ players });
@@ -148,7 +146,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
 
   setBetAmount: (amount) => {
     if (get().gameStarted) return;
-    set({ betAmount: Math.max(1, amount) }); // ✅ Just update, no finance logic here!
+    set({ betAmount: Math.max(1, amount) }); // Just update, no finance logic here!
   },
 
   recalculatePrizePool: () => {

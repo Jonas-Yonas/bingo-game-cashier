@@ -11,7 +11,7 @@ import { BINGO_CARDS } from "@/app/lib/utils";
 import { ConfirmResetDialog } from "@/app/components/ConfirmResetDialog";
 import { PreviewPlayersDialog } from "@/app/components/CustomPreviewDialog";
 import useAudioManager from "@/app/hooks/useAudioManager";
-import { checkAudioFilesLoaded, clearDatabase } from "@/lib/dexieDatabase";
+import { BingoBall } from "@/app/components/BingoBalls";
 
 export default function BingoCallerPage() {
   const { playAudio } = useAudioManager();
@@ -50,6 +50,11 @@ export default function BingoCallerPage() {
   const [lastCheckedCard, setLastCheckedCard] = useState<string | null>(null);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
+  const [flickerNumbers, setFlickerNumbers] = useState<Set<number>>(new Set());
+
+  const flickerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const flickerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [narrator, setNarrator] = useState<"en" | "am">("am"); // 'am' for Amharic audio, 'en' for English TTS
 
@@ -172,12 +177,66 @@ export default function BingoCallerPage() {
     setConfirmResetOpen(false);
   };
 
-  const shuffleNumbers = () => {
+  const shuffleNumbers = async () => {
+    if (calledNumbers.length !== 0) return; // disable if numbers called
+
+    const audio = new Audio("/audios/shuffle.mp3");
+
+    startFlickerEffect();
+
+    await new Promise<void>((resolve) => {
+      audio.onended = () => {
+        stopFlickerEffect(); // stop flickering exactly when audio ends
+        resolve();
+      };
+      audio.play();
+    });
+
     const newShuffled = shuffleArray([...calledNumbers]);
     resetCalledNumbers();
     newShuffled.forEach((num) => callNumber(num));
-    playAudio("shuffle");
     toast.success("Numbers have been reshuffled");
+  };
+
+  const startFlickerEffect = () => {
+    if (flickerIntervalRef.current) clearInterval(flickerIntervalRef.current);
+    if (flickerTimeoutRef.current) clearTimeout(flickerTimeoutRef.current);
+
+    const flickerDuration = 5000; // 5 seconds
+    const flickerInterval = 150;
+
+    const numbers = numberRows.flat();
+
+    flickerIntervalRef.current = setInterval(() => {
+      setFlickerNumbers(() => {
+        const newSet = new Set<number>();
+        numbers.forEach((num) => {
+          if (Math.random() > 0.5) newSet.add(num);
+        });
+        return newSet;
+      });
+    }, flickerInterval);
+
+    flickerTimeoutRef.current = setTimeout(() => {
+      if (flickerIntervalRef.current) {
+        clearInterval(flickerIntervalRef.current);
+        flickerIntervalRef.current = null;
+      }
+      flickerTimeoutRef.current = null;
+      setFlickerNumbers(new Set());
+    }, flickerDuration);
+  };
+
+  const stopFlickerEffect = () => {
+    if (flickerIntervalRef.current) {
+      clearInterval(flickerIntervalRef.current);
+      flickerIntervalRef.current = null;
+    }
+    if (flickerTimeoutRef.current) {
+      clearTimeout(flickerTimeoutRef.current);
+      flickerTimeoutRef.current = null;
+    }
+    setFlickerNumbers(new Set()); // clear flicker highlights immediately
   };
 
   // Auto-play functionality
@@ -202,29 +261,6 @@ export default function BingoCallerPage() {
       // Cancel any pending speech
       window.speechSynthesis.cancel();
     };
-  }, []);
-
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        console.log("Checking audio files...");
-        const result = await checkAudioFilesLoaded();
-        console.log("Audio load result:", result);
-
-        if (result === "Audio files are successfully loaded.") {
-          console.log("Audio files verified");
-        } else {
-          console.warn("Audio files need to be reloaded");
-          // Force reload audio files
-          await clearDatabase();
-          await checkAudioFilesLoaded();
-        }
-      } catch (error) {
-        console.error("Audio initialization failed:", error);
-      }
-    };
-
-    initialize();
   }, []);
 
   if (status === "loading" || !session) return null;
@@ -258,10 +294,11 @@ export default function BingoCallerPage() {
           </div>
 
           <div className="flex-1 flex flex-col items-center justify-center p-1">
-            <div className="text-4xl animate-bounce">🎰</div>
+            <BingoBall />
+
             <div className="text-lg font-bold text-red-600 dark:text-red-400 mt-1 text-center">
-              <span className="text-2xl text-yellow-500">ATS</span>
-              <br /> BINGO
+              BINGO <br />
+              <span className="text-2xl text-yellow-500">BLAST</span>
             </div>
           </div>
         </div>
@@ -290,16 +327,22 @@ export default function BingoCallerPage() {
                   <div
                     key={num}
                     className={`flex-1 flex items-center justify-center text-3xl font-bold border border-gray-300 dark:border-gray-600 rounded-sm
-                      ${
-                        calledNumbers.includes(num)
-                          ? "bg-emerald-600 text-gray-200"
-                          : "bg-gray-200 dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-600"
-                      }
-                      ${
-                        currentCall === `${getLetterForNumber(num)}${num}`
-                          ? "ring-2 ring-yellow-500 shadow-lg animate-pulse"
-                          : ""
-                      }`}
+                   ${
+                     calledNumbers.includes(num)
+                       ? "bg-emerald-600 text-gray-200"
+                       : "bg-gray-200 dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-600"
+                   }
+                   ${
+                     currentCall === `${getLetterForNumber(num)}${num}`
+                       ? "ring-2 ring-yellow-500 shadow-lg animate-pulse"
+                       : ""
+                   }
+                   ${
+                     flickerNumbers.has(num)
+                       ? "shadow-[0_0_10px_3px_rgba(255,192,203,0.75)]"
+                       : ""
+                   }
+                 `}
                   >
                     {num}
                   </div>
@@ -330,8 +373,8 @@ export default function BingoCallerPage() {
           {/* Current Call Display */}
           <div className="flex items-center justify-center">
             <div
-              className="w-20 h-20 rounded-full bg-gradient-to-br from-red-700 to-red-500 flex items-center justify-center 
-                  ring-8 ring-red-400 ring-offset-4 ring-offset-white shadow-xl"
+              className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center 
+                  ring-8 ring-blue-400 ring-offset-4 ring-offset-white shadow-xl"
             >
               <span className="text-3xl font-extrabold text-white drop-shadow-md">
                 {currentCall || "?"}
@@ -357,8 +400,7 @@ export default function BingoCallerPage() {
             </button>
             <button
               onClick={shuffleNumbers}
-              disabled={calledNumbers.length === 0}
-              //   disabled
+              disabled={calledNumbers.length !== 0}
               className="bg-pink-600 hover:bg-pink-700 text-white px-1 py-0.5 rounded text-xs disabled:bg-gray-400"
             >
               Shuffle

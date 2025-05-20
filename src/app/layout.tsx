@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { auth } from "@/auth";
 import { ROLES } from "@/types";
 import AuthProvider from "./providers/AuthProvider";
+import AudioInitializer from "./components/AudioInitializer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -48,7 +49,10 @@ export default async function RootLayout({
           storageKey="myapp-theme" // Unique key for the app
         >
           <AuthProvider>
-            <RoleAwareApp>{children}</RoleAwareApp>
+            <RoleAwareApp>
+              <AudioInitializer />
+              {children}
+            </RoleAwareApp>
             <Toaster position="top-right" richColors />
           </AuthProvider>
         </ThemeProvider>
