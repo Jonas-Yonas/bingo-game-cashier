@@ -3,11 +3,18 @@ import { NextResponse } from "next/server";
 
 export async function POST(
   request: Request,
-  context: { params: { shopId: string } }
+  { params }: { params: { shopId: string } }
 ) {
   try {
-    const { params } = context;
     const { amount, type, note } = await request.json();
+
+    // Input validation
+    if (typeof amount !== "number") {
+      return NextResponse.json(
+        { error: "Amount must be a number" },
+        { status: 400 }
+      );
+    }
 
     // Create transaction
     const transaction = await db.walletTransaction.create({
@@ -19,25 +26,35 @@ export async function POST(
       },
     });
 
-    // Update shop balance
+    // Update shop balance (use decrement for negative amounts)
+    const updateOperation = amount >= 0 ? "increment" : "decrement";
     const shop = await db.shop.update({
       where: { id: params.shopId },
       data: {
         walletBalance: {
-          increment: amount, // Use decrement if amount is negative
+          [updateOperation]: Math.abs(amount),
         },
       },
     });
 
     return NextResponse.json({
+      success: true,
       transaction,
       newBalance: shop.walletBalance,
     });
   } catch (error) {
     console.error("[CREATE_TRANSACTION]", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Transaction failed",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
+}
+
+// Add OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 });
 }
