@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { ROLES } from "@/types";
 import AuthProvider from "./providers/AuthProvider";
 import AudioInitializer from "./components/AudioInitializer";
+import ReactQueryProvider from "./providers/ReactQueryProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -50,8 +51,10 @@ export default async function RootLayout({
         >
           <AuthProvider>
             <RoleAwareApp>
-              <AudioInitializer />
-              {children}
+              <ReactQueryProvider>
+                <AudioInitializer />
+                {children}
+              </ReactQueryProvider>
             </RoleAwareApp>
             <Toaster position="top-right" richColors />
           </AuthProvider>

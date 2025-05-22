@@ -8,6 +8,9 @@ interface WalletTransaction {
 }
 
 interface BingoGameState {
+  shopId: string | null;
+  setShopId: (id: string) => void;
+
   players: number[];
   calledNumbers: number[];
   lockedNumbers: number[];
@@ -38,9 +41,16 @@ interface BingoGameState {
   topUpWallet: (amount: number, note?: string) => void;
 
   playBingoSound: () => void;
+
+  syncWallet: (shopId: string) => Promise<void>;
+  prepareGame: () => void;
+  startGameWithDeduction: (shopId: string) => Promise<void>;
 }
 
 export const useBingoStore = create<BingoGameState>((set, get) => ({
+  shopId: null,
+  setShopId: (id: string) => set({ shopId: id }),
+
   players: [],
   calledNumbers: [],
   lockedNumbers: [],
@@ -50,7 +60,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
   prizePool: 0,
   shopCommission: 0,
   systemCommission: 0,
-  initialWalletBalance: 5000,
+  initialWalletBalance: 0,
   walletTransactions: [],
 
   canStartGame: () => {
@@ -74,7 +84,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
         : [...state.players, playerId];
       return { players: updatedPlayers };
     });
-    get().recalculatePrizePool(); // 🔁 Update prize pool after adding
+    get().recalculatePrizePool(); // Update prize pool after adding
   },
 
   removePlayer: (playerId) => {
@@ -82,7 +92,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
     set((state) => ({
       players: state.players.filter((id) => id !== playerId),
     }));
-    get().recalculatePrizePool(); // 🔁 Update prize pool after removing
+    get().recalculatePrizePool(); // Update prize pool after removing
   },
 
   setPlayers: (players) => {
@@ -102,9 +112,9 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
       lockedNumbers: [...state.lockedNumbers, number],
     })),
 
-  startGame: () => {
-    const { players, betAmount, getWalletBalance, gameStarted } = get();
-    if (players.length === 0 || gameStarted) return;
+  startGame: async () => {
+    const { players, betAmount, getWalletBalance, gameStarted, shopId } = get();
+    if (players.length === 0 || gameStarted || !shopId) return;
 
     const totalBet = players.length * betAmount;
     const shopCommission = totalBet * 0.2;
@@ -115,21 +125,44 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
       return;
     }
 
-    set((state) => ({
-      gameStarted: true,
-      prizePool: totalBet - shopCommission,
-      shopCommission,
-      systemCommission,
-      walletTransactions: [
-        ...state.walletTransactions,
-        {
+    try {
+      // Make API call to record transaction
+      const response = await fetch(`/api/shops/${shopId}/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           amount: -systemCommission,
           type: "commission",
-          timestamp: new Date(),
-          note: `System commission deducted from ${players.length} players`,
-        },
-      ],
-    }));
+          note: `System commission for ${players.length} players`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to record transaction");
+      }
+
+      // Update local state only after successful API call
+      set((state) => ({
+        gameStarted: true,
+        prizePool: totalBet - shopCommission,
+        shopCommission,
+        systemCommission,
+        walletTransactions: [
+          ...state.walletTransactions,
+          {
+            amount: -systemCommission,
+            type: "commission",
+            timestamp: new Date(),
+            note: `System commission deducted from ${players.length} players`,
+          },
+        ],
+      }));
+    } catch (error) {
+      console.error("Error starting game:", error);
+      alert("Failed to start game. Please try again.");
+    }
   },
 
   resetGame: () => {
@@ -179,5 +212,73 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
   playBingoSound: () => {
     const audio = new Audio("/audios/bingo.mp3");
     audio.play().catch((e) => console.error("Audio play failed:", e));
+  },
+
+  syncWallet: async (shopId) => {
+    try {
+      const res = await fetch(`/api/shops/${shopId}/wallet`);
+      const data = await res.json();
+      set({
+        initialWalletBalance: data.balance,
+        walletTransactions: data.transactions || [],
+      });
+    } catch (error) {
+      console.error("Failed to sync wallet:", error);
+    }
+  },
+
+  prepareGame: () => {
+    const { players, betAmount } = get();
+    const totalBet = players.length * betAmount;
+    const shopCommission = totalBet * 0.2;
+    const systemCommission = shopCommission * 0.2;
+
+    set({
+      prizePool: totalBet - shopCommission,
+      shopCommission,
+      systemCommission,
+      // Don't deduct yet, just calculate
+    });
+  },
+
+  startGameWithDeduction: async (shopId) => {
+    const { systemCommission, players } = get();
+    if (!shopId) throw new Error("No shop ID");
+
+    try {
+      // Make API call to record transaction
+      const response = await fetch(`/api/shops/${shopId}/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: -systemCommission,
+          type: "commission",
+          note: `System commission for ${players.length} players`,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to record transaction");
+
+      // Update local state
+      set({
+        gameStarted: true,
+        walletTransactions: [
+          ...get().walletTransactions,
+          {
+            amount: -systemCommission,
+            type: "commission",
+            timestamp: new Date(),
+            note: `System commission for ${players.length} players`,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Deduction failed:", error);
+      // Optionally reset game state if deduction fails
+      get().resetGame();
+      throw error;
+    }
   },
 }));

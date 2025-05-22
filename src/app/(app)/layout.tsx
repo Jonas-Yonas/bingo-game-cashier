@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Topbar } from "../components/layout/Topbar";
-
 import { redirect } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { useCashierShop } from "@/hooks/useCashierShop"; // make sure it's imported
 
 const CashierLayout = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status } = useSession();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const shopId = useCashierShop();
+
+  // Check for valid session
+  useEffect(() => {
+    if (shopId) {
+      localStorage.setItem("shopId", shopId);
+    }
+  }, [shopId]);
 
   if (status === "loading")
     return (

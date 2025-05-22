@@ -84,31 +84,28 @@ export function Sidebar({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link href={item.href} passHref>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        className={cn(
-                          "w-full justify-start gap-3 h-11 relative",
-                          isCollapsed && "justify-center px-0",
-                          "hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors", // Hover effect
-                          pathname === item.href
-                            ? "bg-gray-200 dark:bg-gray-800 font-medium" // Active state
-                            : ""
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start gap-3 h-11 relative",
+                        isCollapsed && "justify-center px-0",
+                        "hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
+                        pathname === item.href
+                          ? "bg-gray-200 dark:bg-gray-800 font-medium"
+                          : ""
+                      )}
+                    >
+                      <Link href={item.href}>
+                        {item.icon}
+                        {!isCollapsed && (
+                          <span className="truncate">{item.name}</span>
                         )}
-                      >
-                        <a>
-                          {item.icon}
-                          {!isCollapsed && (
-                            <span className="truncate">{item.name}</span>
-                          )}
-                          {/* Active indicator bar */}
-                          {pathname === item.href && (
-                            <span className="absolute left-0 top-0 bottom-0 w-1 bg-gray-500 dark:bg-emerald-500 rounded-r-md"></span>
-                          )}
-                        </a>
-                      </Button>
-                    </Link>
+                        {pathname === item.href && (
+                          <span className="absolute left-0 top-0 bottom-0 w-1 bg-gray-500 dark:bg-emerald-500 rounded-r-md"></span>
+                        )}
+                      </Link>
+                    </Button>
                   </TooltipTrigger>
                   {isCollapsed && (
                     <TooltipContent

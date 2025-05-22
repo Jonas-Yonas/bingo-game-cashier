@@ -9,12 +9,16 @@ import { toast } from "sonner";
 import { BINGO_CARDS } from "@/app/lib/utils";
 
 import { ConfirmResetDialog } from "@/app/components/ConfirmResetDialog";
-import { PreviewPlayersDialog } from "@/app/components/CustomPreviewDialog";
-import useAudioManager from "@/app/hooks/useAudioManager";
-import { BingoBall } from "@/app/components/BingoBalls";
+import useAudioManager from "@/hooks/useAudioManager";
+import { BingoBoard } from "@/app/components/caller/BingoBoard";
+import { BingoControls } from "@/app/components/caller/BingoControls";
+import { BingoSidebar } from "@/app/components/caller/BingoSidebar";
+import { useResolvedShopId } from "@/hooks/useResolvedShopId";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function BingoCallerPage() {
   const { playAudio } = useAudioManager();
+  const shopId = useResolvedShopId();
 
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -26,10 +30,13 @@ export default function BingoCallerPage() {
     resetCalledNumbers,
     resetGame,
     setPlayers,
-    removePlayer,
     lockedNumbers,
-    addLockedNumber,
+    gameStarted,
+    startGameWithDeduction,
   } = useBingoStore();
+
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Authentication and authorization check
   useEffect(() => {
@@ -50,24 +57,17 @@ export default function BingoCallerPage() {
   const [lastCheckedCard, setLastCheckedCard] = useState<string | null>(null);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-
   const [flickerNumbers, setFlickerNumbers] = useState<Set<number>>(new Set());
+  const [narrator, setNarrator] = useState<"en" | "am">("am");
 
   const flickerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const flickerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [narrator, setNarrator] = useState<"en" | "am">("am"); // 'am' for Amharic audio, 'en' for English TTS
 
   // Initialize shuffled numbers
   useEffect(() => {
     const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
     setShuffledNumbers(shuffleArray(numbers));
   }, []);
-
-  // Generate BINGO number grid
-  const numberRows = Array.from({ length: 5 }, (_, row) =>
-    Array.from({ length: 15 }, (_, col) => row * 15 + col + 1)
-  );
 
   const getLetterForNumber = (num: number) => {
     if (num <= 15) return "B";
@@ -113,12 +113,11 @@ export default function BingoCallerPage() {
 
     if (available.length === 0) {
       setIsAutoPlaying(false);
-
       toast.error("All numbers have been called!");
       return null;
     }
 
-    const num = available[0]; // Get next number from shuffled array
+    const num = available[0];
     const letter = getLetterForNumber(num);
     const call = `${letter}${num}`;
 
@@ -151,10 +150,14 @@ export default function BingoCallerPage() {
     narrator,
   ]);
 
-  const startAutoPlay = () => {
+  const startAutoPlay = async () => {
     setIsAutoPlaying(true);
     playAudio("start");
     toast.success("Auto-play started");
+
+    if (shopId) {
+      await useBingoStore().syncWallet(shopId);
+    }
   };
 
   const pauseAutoPlay = async () => {
@@ -170,7 +173,6 @@ export default function BingoCallerPage() {
   const handleResetBoard = () => {
     resetGame();
     resetCalledNumbers();
-
     setCurrentCall(null);
     toast("Board has been reset");
     router.push("/bingo");
@@ -178,15 +180,14 @@ export default function BingoCallerPage() {
   };
 
   const shuffleNumbers = async () => {
-    if (calledNumbers.length !== 0) return; // disable if numbers called
+    if (calledNumbers.length !== 0) return;
 
     const audio = new Audio("/audios/shuffle.mp3");
-
     startFlickerEffect();
 
     await new Promise<void>((resolve) => {
       audio.onended = () => {
-        stopFlickerEffect(); // stop flickering exactly when audio ends
+        stopFlickerEffect();
         resolve();
       };
       audio.play();
@@ -202,10 +203,12 @@ export default function BingoCallerPage() {
     if (flickerIntervalRef.current) clearInterval(flickerIntervalRef.current);
     if (flickerTimeoutRef.current) clearTimeout(flickerTimeoutRef.current);
 
-    const flickerDuration = 5000; // 5 seconds
+    const flickerDuration = 5000;
     const flickerInterval = 150;
 
-    const numbers = numberRows.flat();
+    const numbers = Array.from({ length: 5 }, (_, row) =>
+      Array.from({ length: 15 }, (_, col) => row * 15 + col + 1)
+    ).flat();
 
     flickerIntervalRef.current = setInterval(() => {
       setFlickerNumbers(() => {
@@ -236,7 +239,7 @@ export default function BingoCallerPage() {
       clearTimeout(flickerTimeoutRef.current);
       flickerTimeoutRef.current = null;
     }
-    setFlickerNumbers(new Set()); // clear flicker highlights immediately
+    setFlickerNumbers(new Set());
   };
 
   // Auto-play functionality
@@ -258,12 +261,53 @@ export default function BingoCallerPage() {
 
   useEffect(() => {
     return () => {
-      // Cancel any pending speech
       window.speechSynthesis.cancel();
     };
   }, []);
 
+  useEffect(() => {
+    if (!gameStarted && shopId) {
+      startGameWithDeduction(shopId).catch(console.error);
+    }
+  }, [gameStarted, shopId]);
+
+  useEffect(() => {
+    if (gameStarted) {
+      setLoading(false);
+      return;
+    }
+
+    if (!shopId) {
+      setError("No shop associated");
+      return;
+    }
+
+    const initializeGame = async () => {
+      try {
+        await startGameWithDeduction(shopId);
+      } catch (err) {
+        setError("Failed to start game. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeGame();
+  }, [gameStarted, shopId]);
+
   if (status === "loading" || !session) return null;
+
+  if (error) return <div className="text-red-500">{error}</div>;
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+        <div className="flex flex-col gap-4 items-center">
+          <Spinner size="lg" />
+          <p className="text-muted-foreground text-sm">Starting game ...</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-gray-50 dark:bg-gray-900 overflow-hidden">
@@ -272,218 +316,36 @@ export default function BingoCallerPage() {
         className="flex flex-1 w-full"
         style={{ height: "calc(100vh - 80px)" }}
       >
-        {/* Left Sidebar */}
-        <div className="w-40 bg-white dark:bg-gray-800 p-2 flex flex-col border-r border-gray-200 dark:border-gray-700 pt-10">
-          <div className="flex justify-between mb-3">
-            <div className="text-center">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Total
-              </h3>
-              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {calledNumbers.length}
-              </p>
-            </div>
-            <div className="text-center">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Last
-              </h3>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                {currentCall || "--"}
-              </p>
-            </div>
-          </div>
+        <BingoSidebar calledNumbers={calledNumbers} currentCall={currentCall} />
 
-          <div className="flex-1 flex flex-col items-center justify-center p-1">
-            <BingoBall />
-
-            <div className="text-lg font-bold text-red-600 dark:text-red-400 mt-1 text-center">
-              BINGO <br />
-              <span className="text-2xl text-yellow-500">BLAST</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Board */}
-        <div className="flex-1 flex relative min-w-0">
-          {/* Bingo Letters - Left */}
-          <div className="w-8 flex flex-col px-6">
-            {["B", "I", "N", "G", "O"].map((letter) => (
-              <div
-                key={`left-${letter}`}
-                className="h-[20%] flex items-center justify-center bg-gray-100 dark:bg-gray-800"
-              >
-                <div className="text-4xl font-black text-gray-800 dark:text-blue-600">
-                  {letter}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Numbers Grid */}
-          <div className="flex-1 flex flex-col gap-y-1 pt-1">
-            {numberRows.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex flex-1 gap-x-1">
-                {row.map((num) => (
-                  <div
-                    key={num}
-                    className={`flex-1 flex items-center justify-center text-3xl font-bold border border-gray-300 dark:border-gray-600 rounded-sm
-                   ${
-                     calledNumbers.includes(num)
-                       ? "bg-emerald-600 text-gray-200"
-                       : "bg-gray-200 dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-600"
-                   }
-                   ${
-                     currentCall === `${getLetterForNumber(num)}${num}`
-                       ? "ring-2 ring-yellow-500 shadow-lg animate-pulse"
-                       : ""
-                   }
-                   ${
-                     flickerNumbers.has(num)
-                       ? "shadow-[0_0_10px_3px_rgba(255,192,203,0.75)]"
-                       : ""
-                   }
-                 `}
-                  >
-                    {num}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          {/* Bingo Letters - Right */}
-          <div className="w-8 flex flex-col px-6">
-            {["B", "I", "N", "G", "O"].map((letter) => (
-              <div
-                key={`right-${letter}`}
-                className="h-[20%] flex items-center justify-center bg-gray-100 dark:bg-gray-800"
-              >
-                <div className="text-4xl font-black text-gray-800 dark:text-blue-600 rounded-md">
-                  {letter}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <BingoBoard
+          calledNumbers={calledNumbers}
+          currentCall={currentCall}
+          flickerNumbers={flickerNumbers}
+          getLetterForNumber={getLetterForNumber}
+        />
       </div>
 
-      {/* Controls Section */}
-      <div className="bg-white dark:bg-gray-800 p-2 border-t border-gray-200 dark:border-gray-700 h-32 mt-8">
-        <div className="max-w-5xl mx-auto grid grid-cols-4 gap-2 h-24 py-2">
-          {/* Current Call Display */}
-          <div className="flex items-center justify-center">
-            <div
-              className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center 
-                  ring-8 ring-blue-400 ring-offset-4 ring-offset-white shadow-xl"
-            >
-              <span className="text-3xl font-extrabold text-white drop-shadow-md">
-                {currentCall || "?"}
-              </span>
-            </div>
-          </div>
-
-          {/* Control Buttons */}
-          <div className="grid grid-cols-2 gap-1">
-            <button
-              onClick={startAutoPlay}
-              disabled={isAutoPlaying || calledNumbers.length === 75}
-              className="bg-green-600 hover:bg-green-700 text-white px-1 py-0.5 rounded text-xs disabled:bg-gray-400"
-            >
-              Start Auto
-            </button>
-            <button
-              onClick={pauseAutoPlay}
-              disabled={!isAutoPlaying}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white px-1 py-0.5 rounded text-xs disabled:bg-gray-400"
-            >
-              Pause
-            </button>
-            <button
-              onClick={shuffleNumbers}
-              disabled={calledNumbers.length !== 0}
-              className="bg-pink-600 hover:bg-pink-700 text-white px-1 py-0.5 rounded text-xs disabled:bg-gray-400"
-            >
-              Shuffle
-            </button>
-            <button
-              onClick={() => {
-                setIsAutoPlaying(false);
-                setConfirmResetOpen(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-1 py-0.5 rounded text-xs"
-            >
-              Reset
-            </button>
-          </div>
-
-          {/* Right Controls */}
-          <div className="grid grid-cols-1 gap-1 w-full">
-            <div className="flex gap-1 h-10">
-              <select
-                value={callerLanguage}
-                onChange={(e) => {
-                  setCallerLanguage(e.target.value);
-                  setNarrator(e.target.value === "English" ? "en" : "am");
-                }}
-                className="flex-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-xs"
-              >
-                <option value="English">English</option>
-                <option value="Amharic">Amharic</option>
-              </select>
-            </div>
-
-            <div className="flex gap-1 h-10">
-              <div className="flex justify-between">
-                <input
-                  type="number"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  placeholder="Card #"
-                  className="flex bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-xl rounded-r-none w-1/2"
-                  min="1"
-                />
-                <button
-                  onClick={checkWinner}
-                  disabled={!cardNumber}
-                  className="bg-red-600 hover:bg-red-700 text-white px-1 py-0.5 rounded-l-none rounded text-xs disabled:bg-gray-400 w-1/2"
-                >
-                  Check Winner
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Current Amount to Bet */}
-          <div className="flex items-center justify-end">
-            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center ring-8 ring-blue-400           ring-offset-4 ring-offset-white shadow-lg animate-pulse transform transition duration-500 ease-in-out">
-              <PreviewPlayersDialog
-                trigger={
-                  <button
-                    className="px-6 py-3 rounded-lg"
-                    onClick={previewActivePlayers}
-                  >
-                    <span className="text-2xl font-extrabold text-white drop-shadow-lg select-none">
-                      {prizePool < 1000
-                        ? prizePool
-                        : Math.round(prizePool / 1000) + "K"}
-                    </span>
-                  </button>
-                }
-              />
-              {/* Player count badge */}
-              {players.length > 0 && (
-                <div
-                  className="absolute -top-2 -right-6 bg-red-500 text-white text-xs 
-                     font-bold rounded-full w-6 h-6 p-4 flex items-center justify-center
-                     shadow-md animate-bounce"
-                >
-                  {players.length}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <BingoControls
+        calledNumbers={calledNumbers}
+        currentCall={currentCall}
+        isAutoPlaying={isAutoPlaying}
+        prizePool={prizePool}
+        players={players}
+        cardNumber={cardNumber}
+        callerLanguage={callerLanguage}
+        onStartAutoPlay={startAutoPlay}
+        onPauseAutoPlay={pauseAutoPlay}
+        onShuffleNumbers={shuffleNumbers}
+        onReset={() => setConfirmResetOpen(true)}
+        onCheckWinner={checkWinner}
+        onCardNumberChange={setCardNumber}
+        onCallerLanguageChange={(value) => {
+          setCallerLanguage(value);
+          setNarrator(value === "English" ? "en" : "am");
+        }}
+        onPreviewActivePlayers={previewActivePlayers}
+      />
 
       {/* Winner Modal */}
       {showWinnerModal && lastCheckedCard && (
