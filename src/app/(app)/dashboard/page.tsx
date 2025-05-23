@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
 import { ROLES } from "@/types";
-import Dashboard from "@/app/components/Dashboard";
+import Dashboard from "@/app/components/dashboard/Dashboard";
 import { loadAllAudiosSimple } from "@/lib/dexieDatabase";
 
 export default function DashboardPage() {

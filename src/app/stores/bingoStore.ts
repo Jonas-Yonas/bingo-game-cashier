@@ -254,7 +254,7 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
         },
         body: JSON.stringify({
           amount: -systemCommission,
-          type: "commission",
+          type: "COMMISSION",
           note: `System commission for ${players.length} players`,
         }),
       });

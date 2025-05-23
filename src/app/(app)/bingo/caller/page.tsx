@@ -15,6 +15,7 @@ import { BingoControls } from "@/app/components/caller/BingoControls";
 import { BingoSidebar } from "@/app/components/caller/BingoSidebar";
 import { useResolvedShopId } from "@/hooks/useResolvedShopId";
 import { Spinner } from "@/components/ui/spinner";
+import { useGameStore } from "@/app/stores/gameStore";
 
 export default function BingoCallerPage() {
   const { playAudio } = useAudioManager();
@@ -23,6 +24,7 @@ export default function BingoCallerPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const {
+    betAmount,
     players,
     calledNumbers,
     prizePool,
@@ -34,6 +36,14 @@ export default function BingoCallerPage() {
     gameStarted,
     startGameWithDeduction,
   } = useBingoStore();
+
+  //  const { players, betAmount, startGame } = useBingoStore();
+  const {
+    createGame,
+    currentGame,
+    isSaving,
+    error: gameError,
+  } = useGameStore();
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,13 +160,35 @@ export default function BingoCallerPage() {
     narrator,
   ]);
 
-  const startAutoPlay = async () => {
-    setIsAutoPlaying(true);
-    playAudio("start");
-    toast.success("Auto-play started");
+  // const startAutoPlay = async () => {
+  //   setIsAutoPlaying(true);
+  //   playAudio("start");
+  //   toast.success("Auto-play started");
 
-    if (shopId) {
-      await useBingoStore().syncWallet(shopId);
+  //   if (shopId) {
+  //     await useBingoStore().syncWallet(shopId);
+  //   }
+  // };
+
+  const startAutoPlay = async () => {
+    try {
+      // First create the game record
+      await createGame(shopId as string, betAmount, ["5", "8"]);
+
+      // Then handle the financial transactions
+      // await startGame();
+
+      setIsAutoPlaying(true);
+      playAudio("start");
+      toast.success("Auto-play started");
+
+      if (shopId) {
+        await useBingoStore().syncWallet(shopId);
+      }
+
+      // Game is now active in both stores
+    } catch (err) {
+      console.error("Failed to start game:", err);
     }
   };
 

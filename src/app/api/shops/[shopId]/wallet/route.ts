@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { shopId: string } }
+  context: { params: { shopId: string } }
 ) {
+  const shopId = context.params.shopId;
+
   try {
     const shop = await db.shop.findUnique({
-      where: { id: params.shopId },
+      where: { id: shopId },
       select: { walletBalance: true },
     });
 

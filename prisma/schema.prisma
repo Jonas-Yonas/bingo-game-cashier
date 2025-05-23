@@ -8,8 +8,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CashierStatus {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+// enum TransactionType {
+//   credit
+//   debit
+// }
+
 model User {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  id             String    @id @map("_id") @db.ObjectId
   name           String?
   email          String    @unique
   emailVerified  DateTime?
@@ -18,14 +28,14 @@ model User {
   role           String    @default("USER")
   accounts       Account[]
   sessions       Session[]
-  managedShop    Shop[]    @relation("ShopOwner") // A user can manage one shop
-  cashierProfile Cashier?  @relation("CashierProfile") // A user can have one cashier profile
+  managedShop    Shop[]    @relation("ShopOwner")
+  cashierProfile Cashier[] @relation("CashierProfile")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
 
 model Account {
-  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  id                String  @id @map("_id") @db.ObjectId
   userId            String  @db.ObjectId
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type              String
@@ -40,33 +50,38 @@ model Account {
   session_state     String?
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @id @map("_id") @db.ObjectId
   sessionToken String   @unique
   userId       String   @db.ObjectId
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expires      DateTime
+
+  @@index([userId])
 }
 
 model Cashier {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String        @id @map("_id") @db.ObjectId
   name      String
-  email     String   @unique
+  email     String        @unique
   phone     String?
-  isActive  Boolean  @default(true)
-  status    String   @default("AVAILABLE")
-  user      User?    @relation("CashierProfile", fields: [userId], references: [id])
-  userId    String?  @unique @db.ObjectId
-  shop      Shop     @relation(fields: [shopId], references: [id])
-  shopId    String   @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean       @default(true)
+  status    CashierStatus @default(AVAILABLE)
+  user      User?         @relation("CashierProfile", fields: [userId], references: [id])
+  userId    String?       @db.ObjectId
+  shop      Shop          @relation(fields: [shopId], references: [id])
+  shopId    String        @db.ObjectId
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([shopId])
 }
 
 model Shop {
-  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String              @id @map("_id") @db.ObjectId
   name               String
   location           String
   shopCommission     Float               @default(0.0)
@@ -76,16 +91,58 @@ model Shop {
   manager            User?               @relation("ShopOwner", fields: [managerId], references: [id])
   managerId          String?             @db.ObjectId
   walletTransactions WalletTransaction[]
+  games              Game[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+
+  @@index([managerId])
 }
 
 model WalletTransaction {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  shopId    String   @db.ObjectId
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  shop      Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId    String          @db.ObjectId
   amount    Float
-  type      String // e.g., "credit" or "debit"
+  type      TransactionType
   reference String?
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
+
+  @@index([shopId])
+}
+
+model Game {
+  id               String     @id @default(auto()) @map("_id") @db.ObjectId
+  shopId           String     @db.ObjectId
+  shop             Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  status           GameStatus @default(ACTIVE)
+  betAmount        Float
+  players          String[]   @db.ObjectId // Array of player IDs
+  timestamp        DateTime   @default(now())
+  calledNumbers    Int[]
+  lockedNumbers    Int[] // Added missing field from your store
+  prizePool        Float? // Renamed from winningAmount for consistency with store
+  shopCommission   Float
+  systemCommission Float
+  winnerCard       String?
+  winnerPlayerId   String?    @db.ObjectId
+  endedAt          DateTime?
+
+  @@index([shopId])
+  @@index([status])
+  @@index([timestamp])
+  @@index([winnerPlayerId])
+}
+
+enum GameStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionType {
+  COMMISSION
+  TOPUP
+  ADJUSTMENT
+  WINNING
 }
