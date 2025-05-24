@@ -1,141 +1,86 @@
-// import { Game } from "@/types";
-// import { NextResponse } from "next/server";
-
-// // Mock database - replace with real DB calls
-// let games: Game[] = []; // Your initial game data
-
-// export async function GET(request: Request) {
-//   const { searchParams } = new URL(request.url);
-
-//   // Pagination
-//   const page = parseInt(searchParams.get("page") || "1");
-//   const limit = parseInt(searchParams.get("limit") || "10");
-
-//   // Filtering
-//   const shopId = searchParams.get("shopId");
-//   const status = searchParams.get("status");
-//   const dateFrom = searchParams.get("dateFrom");
-//   const dateTo = searchParams.get("dateTo");
-
-//   let filteredGames = [...games];
-
-//   // Apply filters
-//   if (shopId) {
-//     filteredGames = filteredGames.filter((game) => game.shopId === shopId);
-//   }
-
-//   if (status) {
-//     filteredGames = filteredGames.filter((game) => game.status === status);
-//   }
-
-//   if (dateFrom) {
-//     const fromDate = new Date(dateFrom);
-//     filteredGames = filteredGames.filter(
-//       (game) => new Date(game.timestamp) >= fromDate
-//     );
-//   }
-
-//   if (dateTo) {
-//     const toDate = new Date(dateTo);
-//     filteredGames = filteredGames.filter(
-//       (game) => new Date(game.timestamp) <= toDate
-//     );
-//   }
-
-//   // Paginate
-//   const startIndex = (page - 1) * limit;
-//   const paginatedGames = filteredGames.slice(startIndex, startIndex + limit);
-
-//   return NextResponse.json({
-//     data: paginatedGames,
-//     total: filteredGames.length,
-//     page,
-//     totalPages: Math.ceil(filteredGames.length / limit),
-//   });
-// }
-
-// export async function POST(request: Request) {
-//   const gameData = await request.json();
-//   const newGame: Game = {
-//     id: `GAME-${Date.now()}`,
-//     ...gameData,
-//     timestamp: new Date(),
-//     status: "active",
-//     calledNumbers: [],
-//   };
-
-//   games.push(newGame);
-//   return NextResponse.json(newGame, { status: 201 });
-// }
-
 import { db } from "@/lib/db";
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+// POST /api/games - Create a new game
+export async function POST(req: Request) {
   try {
-    if (req.method === "POST") {
-      // Create new game
-      const {
-        shopId,
+    const { shopId, betAmount, players } = await req.json();
+
+    // Validate shopId format (24-character hex)
+    if (!/^[0-9a-fA-F]{24}$/.test(shopId)) {
+      return NextResponse.json(
+        { error: "Invalid shopId format" },
+        { status: 400 }
+      );
+    }
+
+    // Calculate game values
+    const totalBet = players.length * betAmount;
+    const shopCommission = totalBet * 0.2;
+    const systemCommission = shopCommission * 0.2;
+    const prizePool = totalBet - shopCommission;
+
+    // Convert player IDs to strings
+    const stringPlayers = players.map(String);
+
+    // Create game - Prisma will handle ObjectId conversion
+    const game = await db.game.create({
+      data: {
+        shopId, // Pass as plain string
         betAmount,
-        players,
+        players: stringPlayers, // Ensure string array
         prizePool,
         shopCommission,
         systemCommission,
-      } = req.body;
+        status: "ACTIVE",
+        calledNumbers: [],
+        lockedNumbers: [],
+        totalNumbersCalled: 0,
+      },
+    });
 
-      const game = await db.game.create({
-        data: {
-          shopId,
-          betAmount,
-          players,
-          prizePool,
-          shopCommission,
-          systemCommission,
-          status: "ACTIVE",
-          calledNumbers: [],
-          lockedNumbers: [],
-        },
-      });
-
-      return res.status(201).json(game);
-    }
-
-    if (req.method === "PUT") {
-      // Update existing game (used for both number updates and ending game)
-      const { id } = req.query;
-      const {
-        calledNumbers,
-        lockedNumbers,
-        status,
-        endedAt,
-        winnerCard,
-        winnerPlayerId,
-      } = req.body;
-
-      const updateData: any = {};
-      if (calledNumbers) updateData.calledNumbers = calledNumbers;
-      if (lockedNumbers) updateData.lockedNumbers = lockedNumbers;
-      if (status) updateData.status = status;
-      if (endedAt) updateData.endedAt = new Date(endedAt);
-      if (winnerCard) updateData.winnerCard = winnerCard;
-      if (winnerPlayerId) updateData.winnerPlayerId = winnerPlayerId;
-
-      const updatedGame = await db.game.update({
-        where: { id: id as string },
-        data: updateData,
-      });
-
-      return res.status(200).json(updatedGame);
-    }
-
-    res.setHeader("Allow", ["POST", "PUT"]);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return NextResponse.json(game, { status: 201 });
   } catch (error) {
-    console.error("Game API error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("Full creation error:", {
+      message: error,
+      code: error,
+      meta: error,
+      stack: error,
+    });
+
+    return NextResponse.json(
+      {
+        error: "Game creation failed",
+        details: {
+          code: error,
+          meta: error,
+        },
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/games - Fetch game history for a shop
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const shopId = searchParams.get("shopId");
+
+  if (!shopId) {
+    return NextResponse.json({ error: "shopId is required" }, { status: 400 });
+  }
+
+  try {
+    const games = await db.game.findMany({
+      where: { shopId },
+      orderBy: { timestamp: "desc" },
+    });
+
+    return NextResponse.json(games);
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to fetch games" },
+      { status: 500 }
+    );
   }
 }

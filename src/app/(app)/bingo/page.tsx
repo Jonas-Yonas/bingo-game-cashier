@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { BingoFooter } from "@/app/components/bingo/BingoFooter";
 import { BingoHeader } from "@/app/components/bingo/BingoHeader";
 import { BingoBoard } from "@/app/components/bingo/BingoBoard";
+import { useGameStore } from "@/app/stores/gameStore";
 
 type GameState = {
   selectedNumbers: number[];
@@ -30,12 +31,25 @@ export default function BingoGame() {
     setBetAmount,
     prizePool,
     getWalletBalance,
-    canStartGame,
+    // canStartGame,
     addPlayer,
     removePlayer,
   } = useBingoStore();
 
-  const canStart = canStartGame();
+  // const canStart = canStartGame();
+
+  // const canStartGame = useBingoStore(
+  //   (state) => state.players.length >= 2 && !state.gameStarted
+  // );
+
+  const canStartGame = useBingoStore((state) => {
+    const gameStore = useGameStore.getState();
+    return (
+      state.canStartGame() &&
+      !gameStore.isSaving &&
+      gameStore.currentGame.id === null
+    );
+  });
 
   // Calculate current wallet amount
   const walletAmount = getWalletBalance();
@@ -75,7 +89,7 @@ export default function BingoGame() {
 
   // Start game handler
   const startGame = async () => {
-    if (!canStartGame()) return;
+    if (!canStartGame) return;
 
     setIsStarting(true);
 
@@ -128,7 +142,7 @@ export default function BingoGame() {
       />
 
       <BingoFooter
-        canStartGame={canStart}
+        canStartGame={canStartGame}
         isStarting={isStarting}
         onClearSelection={clearSelection}
         onStartGame={startGame}

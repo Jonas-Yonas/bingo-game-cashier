@@ -10,11 +10,12 @@ interface Game {
   players: string[];
   calledNumbers: number[];
   lockedNumbers: number[];
+  lastCalledNumber: string | null;
   prizePool: number;
   shopCommission: number;
   systemCommission: number;
   winnerCard: string | null;
-  winnerPlayerId: string | null;
+  // winnerPlayerId: string | null;
   timestamp: Date | null;
   endedAt: Date | null;
 }
@@ -32,7 +33,12 @@ interface GameStore {
     calledNumbers: number[],
     lockedNumbers: number[]
   ) => Promise<void>;
-  endGame: (winnerCard?: string, winnerPlayerId?: string) => Promise<void>;
+  callNumber: (number: number) => void;
+  endGame: (
+    winnerCard?: string,
+    winnerPlayerId?: string,
+    calledNumbers?: number
+  ) => Promise<void>;
   resetGame: () => void;
 }
 
@@ -44,11 +50,12 @@ const initialState: Game = {
   players: [],
   calledNumbers: [],
   lockedNumbers: [],
+  lastCalledNumber: null,
   prizePool: 0,
   shopCommission: 0,
   systemCommission: 0,
   winnerCard: null,
-  winnerPlayerId: null,
+  // winnerPlayerId: null,
   timestamp: null,
   endedAt: null,
 };
@@ -90,7 +97,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         currentGame: {
           ...gameData,
-          status: "ACTIVE",
+          status: "ACTIVE" as unknown as GameStatus,
           calledNumbers: [],
           lockedNumbers: [],
         },
@@ -131,47 +138,60 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  endGame: async (winnerCard, winnerPlayerId) => {
-    const { currentGame } = get();
-    if (!currentGame.id) return;
+  callNumber: (number) => {
+    set((state) => ({
+      currentGame: {
+        ...state.currentGame,
+        calledNumbers: [...state.currentGame.calledNumbers, number],
+        lastCalledNumber: number.toString(),
+      },
+    }));
+  },
 
-    set({ isSaving: true });
+  endGame: async (winnerCard, lastCalledNumber, totalNumbersCalled) => {
+    const { currentGame } = get();
+
+    console.log(currentGame);
+
+    if (!currentGame.id) throw new Error("No active game");
+    // if (!currentGame.id) return;
 
     try {
-      const endedAt = new Date();
-      const response = await fetch(`/api/games/${currentGame.id}`, {
-        method: "PUT",
+      // Only hit API once when game ends
+      const response = await fetch(`/api/games/${currentGame.id}/end`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "COMPLETED",
-          endedAt,
-          winnerCard,
-          winnerPlayerId,
+          calledNumbers: currentGame.calledNumbers,
+          lastCalledNumber: Number(lastCalledNumber),
+          winnerCard: winnerCard,
+          totalNumbersCalled: totalNumbersCalled,
+          // winnerPlayerId: String(winnerPlayerId),
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to end game");
-
-      set({
-        currentGame: {
-          ...currentGame,
-          status: "COMPLETED",
-          endedAt,
-          winnerCard: winnerCard || null,
-          winnerPlayerId: winnerPlayerId || null,
-        },
-        isSaving: false,
-      });
+      // Handle response
     } catch (error) {
-      set({ isSaving: false });
-      console.error("Failed to end game:", error);
+      console.error("End game error:", error);
     }
   },
 
   resetGame: () => {
     set({
-      currentGame: { ...initialState },
+      currentGame: {
+        ...initialState,
+        // Preserve shopId if needed
+        shopId: get().currentGame.shopId,
+      },
+      isSaving: false,
       error: null,
     });
   },
+
+  //   resetGame: () => {
+  //     set({
+  //       currentGame: { ...initialState },
+  //       error: null,
+  //     });
+  //   },
 }));

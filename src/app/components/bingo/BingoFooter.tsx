@@ -13,6 +13,8 @@ export function BingoFooter({
   onClearSelection,
   onStartGame,
 }: BingoFooterProps) {
+  console.log(canStartGame);
+
   return (
     <div className="p-4 flex flex-col items-center gap-3">
       <div className="flex gap-6">

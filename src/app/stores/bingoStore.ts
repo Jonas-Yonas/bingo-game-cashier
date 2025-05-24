@@ -56,16 +56,21 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
   lockedNumbers: [],
   gameStarted: false,
 
-  betAmount: 30,
+  betAmount: 30, // TODO: should be dynamic
   prizePool: 0,
   shopCommission: 0,
   systemCommission: 0,
   initialWalletBalance: 0,
   walletTransactions: [],
 
+  // canStartGame: () => {
+  //   const { players, getWalletBalance } = get();
+  //   return players.length >= 2 && getWalletBalance() >= 0;
+  // },
+
   canStartGame: () => {
-    const { players, getWalletBalance } = get();
-    return players.length >= 2 && getWalletBalance() >= 0;
+    const { players, getWalletBalance, gameStarted } = get();
+    return players.length >= 2 && getWalletBalance() >= 0 && !gameStarted;
   },
 
   getWalletBalance: () => {
@@ -117,8 +122,8 @@ export const useBingoStore = create<BingoGameState>((set, get) => ({
     if (players.length === 0 || gameStarted || !shopId) return;
 
     const totalBet = players.length * betAmount;
-    const shopCommission = totalBet * 0.2;
-    const systemCommission = shopCommission * 0.2;
+    const shopCommission = totalBet * 0.2; // TODO: should be dynamic
+    const systemCommission = shopCommission * 0.2; // TODO: should be dynamic
 
     if (getWalletBalance() < systemCommission) {
       alert("Not enough balance to start the game!");

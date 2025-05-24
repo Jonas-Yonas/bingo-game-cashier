@@ -49,10 +49,10 @@ module.exports = {
         lg: "var(--radius)",
         xl: "calc(var(--radius) + 4px)",
       },
-      fontFamily: {
-        sans: ["var(--font-sans)"],
-        mono: ["var(--font-mono)"],
-      },
+      // fontFamily: {
+      //   sans: ["Inter", "sans-serif"],
+      //   mono: ["var(--font-mono)"],
+      // },
     },
   },
   plugins: [],

@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { useGameStore } from "../stores/gameStore";
 
 interface WinnerModalProps {
   cardNumber: string;
@@ -29,6 +30,8 @@ export default function WinnerModal({
     playBingoSound,
   } = useBingoStore();
 
+  const { endGame } = useGameStore();
+
   const [cardNumbers, setCardNumbers] = useState<number[]>([]);
   const [winnerPatterns, setWinnerPatterns] = useState<string[]>([]);
   const [matchedCells, setMatchedCells] = useState<Set<number>>(new Set());
@@ -46,7 +49,7 @@ export default function WinnerModal({
   const isNumberCalled = (num: number) =>
     num === 0 || calledNumbers.includes(num);
 
-  const checkWinningPatterns = (cardNums: number[]) => {
+  const checkWinningPatterns = async (cardNums: number[]) => {
     const patterns: string[] = [];
     const matchedIndexes = new Set<number>();
 
@@ -84,7 +87,15 @@ export default function WinnerModal({
     setWinnerPatterns(patterns);
     setMatchedCells(matchedIndexes);
 
-    if (patterns.length >= 3) playBingoSound();
+    if (patterns.length >= 3) {
+      playBingoSound();
+
+      await endGame(
+        cardNumber,
+        lastCalledValue?.toString(),
+        calledNumbers?.length
+      );
+    }
   };
 
   const handleLockCard = () => {

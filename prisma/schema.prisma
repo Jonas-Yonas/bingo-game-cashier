@@ -111,26 +111,29 @@ model WalletTransaction {
 }
 
 model Game {
-  id               String     @id @default(auto()) @map("_id") @db.ObjectId
-  shopId           String     @db.ObjectId
-  shop             Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  status           GameStatus @default(ACTIVE)
-  betAmount        Float
-  players          String[]   @db.ObjectId // Array of player IDs
-  timestamp        DateTime   @default(now())
-  calledNumbers    Int[]
-  lockedNumbers    Int[] // Added missing field from your store
-  prizePool        Float? // Renamed from winningAmount for consistency with store
-  shopCommission   Float
-  systemCommission Float
-  winnerCard       String?
-  winnerPlayerId   String?    @db.ObjectId
-  endedAt          DateTime?
+  id                 String     @id @default(auto()) @map("_id") @db.ObjectId
+  shopId             String     @db.ObjectId
+  shop               Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  status             GameStatus @default(ACTIVE)
+  betAmount          Float
+  players            String[] // Array of player IDs
+  timestamp          DateTime   @default(now())
+  calledNumbers      Int[]
+  lockedNumbers      Int[] // Added missing field from your store
+  lastCalledNumber   Int?
+  prizePool          Float? // Renamed from winningAmount for consistency with store
+  shopCommission     Float
+  systemCommission   Float
+  winnerCard         String?
+  // winnerPlayerId     String?
+  endedAt            DateTime?
+  totalNumbersCalled Int        @default(0)
+  // winningAmount      Float?
 
   @@index([shopId])
   @@index([status])
   @@index([timestamp])
-  @@index([winnerPlayerId])
+  @@index([lastCalledNumber])
 }
 
 enum GameStatus {

@@ -37,13 +37,11 @@ export default function BingoCallerPage() {
     startGameWithDeduction,
   } = useBingoStore();
 
-  //  const { players, betAmount, startGame } = useBingoStore();
-  const {
-    createGame,
-    currentGame,
-    isSaving,
-    error: gameError,
-  } = useGameStore();
+  const bingoStore = useBingoStore();
+  const gameStore = useGameStore();
+
+  // const { updateGameNumbers } = useGameStore();
+  const [_, setCalledNumbers] = useState<number[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,6 +67,8 @@ export default function BingoCallerPage() {
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [flickerNumbers, setFlickerNumbers] = useState<Set<number>>(new Set());
   const [narrator, setNarrator] = useState<"en" | "am">("am");
+
+  const [isGameCreated, setIsGameCreated] = useState(false);
 
   const flickerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const flickerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -150,6 +150,11 @@ export default function BingoCallerPage() {
 
     callNumber(num);
     setCurrentCall(call);
+
+    const updatedNumbers = [...calledNumbers, num];
+    setCalledNumbers(updatedNumbers);
+    // updateGameNumbers(updatedNumbers, []); // No locked numbers in this example
+
     return num;
   }, [
     shuffledNumbers,
@@ -172,21 +177,23 @@ export default function BingoCallerPage() {
 
   const startAutoPlay = async () => {
     try {
-      // First create the game record
-      await createGame(shopId as string, betAmount, ["5", "8"]);
-
+      if (!isGameCreated) {
+        // First create the game record
+        await gameStore.createGame(
+          shopId as string,
+          betAmount,
+          players.map(String)
+        );
+        setIsGameCreated(true);
+      }
       // Then handle the financial transactions
-      // await startGame();
-
       setIsAutoPlaying(true);
       playAudio("start");
       toast.success("Auto-play started");
 
       if (shopId) {
-        await useBingoStore().syncWallet(shopId);
+        await bingoStore.syncWallet(shopId); // Wallet syncing
       }
-
-      // Game is now active in both stores
     } catch (err) {
       console.error("Failed to start game:", err);
     }
@@ -203,13 +210,28 @@ export default function BingoCallerPage() {
   };
 
   const handleResetBoard = () => {
-    resetGame();
-    resetCalledNumbers();
+    // Reset both stores
+    useBingoStore.getState().resetGame();
+    useGameStore.getState().resetGame();
+
+    // Reset local state
     setCurrentCall(null);
+    setIsGameCreated(false);
+
     toast("Board has been reset");
     router.push("/bingo");
     setConfirmResetOpen(false);
   };
+
+  // const handleResetBoard = () => {
+  //   resetGame();
+  //   resetCalledNumbers();
+  //   setCurrentCall(null);
+  //   toast("Board has been reset");
+  //   router.push("/bingo");
+  //   setConfirmResetOpen(false);
+  //   setIsGameCreated(false);
+  // };
 
   const shuffleNumbers = async () => {
     if (calledNumbers.length !== 0) return;

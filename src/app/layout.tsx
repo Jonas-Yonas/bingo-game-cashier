@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Toaster } from "sonner";
@@ -8,16 +7,6 @@ import { ROLES } from "@/types";
 import AuthProvider from "./providers/AuthProvider";
 import AudioInitializer from "./components/AudioInitializer";
 import ReactQueryProvider from "./providers/ReactQueryProvider";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
-const robotoMono = Roboto_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -39,9 +28,13 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${robotoMono.variable} font-sans dark:bg-[#020817] dark:text-gray-100`}
-      >
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className={` dark:bg-[#020817] dark:text-gray-100`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
